@@ -80,6 +80,9 @@ header {
   .card h3 { font-size: 10px; margin-bottom: 10px; }
   .ranking-table { font-size: 11px; }
   .ranking-table th, .ranking-table td { padding: 6px 4px; }
+  .cmp-grid { grid-template-columns: 1fr; }
+  .compare-row { flex-wrap: wrap; }
+  .ms-dropdown { min-width: 200px; }
 }
 
 .card {
@@ -133,6 +136,53 @@ canvas { display: block; width: 100% !important; }
 .legend-row i.rect { width: 10px; height: 10px; border-radius: 2px; }
 
 .table-overflow { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+
+.multisel { position: relative; }
+.ms-display {
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card); color: var(--ink); font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+.ms-display::after { content: '\25BE'; font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.ms-display:focus { outline: 2px solid var(--azul2); border-color: transparent; }
+.ms-dropdown {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; min-width: 100%; z-index: 60;
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15); padding: 6px 0; max-height: 240px; overflow-y: auto;
+}
+.multisel.open .ms-dropdown { display: block; }
+.ms-option {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px; cursor: pointer;
+  font-size: 13px; color: var(--ink); transition: background 0.1s; white-space: nowrap;
+}
+.ms-option:hover { background: var(--royal-bg); }
+.ms-option input { accent-color: var(--azul2); width: 15px; height: 15px; cursor: pointer; }
+.ms-option.all-opt { border-bottom: 1px solid var(--line); font-weight: 700; }
+
+.toggle-wrap {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink);
+}
+.toggle-wrap input { accent-color: var(--azul2); width: 16px; height: 16px; cursor: pointer; }
+.compare-row { border-top: none; background: var(--royal-bg); border-bottom: 1px solid var(--dourado); }
+.compare-row .fgroup label { color: var(--dourado); }
+
+.compare-card {
+  background: var(--card); border-radius: 14px; padding: 18px;
+  box-shadow: 0 2px 8px rgba(10,40,80,0.05); border: 1px solid var(--dourado);
+  grid-column: 1 / -1;
+}
+.compare-card h3 { font-size: 11px; font-weight: 700; color: var(--dourado); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 14px; }
+.cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.cmp-col h4 { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; text-align: center; }
+.cmp-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cmp-metric { padding: 10px; border-radius: 10px; border: 1px solid var(--line); text-align: center; }
+.cmp-metric .clab { font-size: 9px; color: var(--muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.4px; }
+.cmp-metric .cval { font-size: 18px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.cmp-delta { text-align: center; padding: 10px; font-size: 13px; font-weight: 700; border-radius: 10px; border: 1px solid var(--line); margin-top: 8px; }
+.cmp-delta.positive { color: #006300; background: rgba(12,163,12,0.06); border-color: rgba(12,163,12,0.2); }
+.cmp-delta.negative { color: #d03b3b; background: rgba(208,59,59,0.06); border-color: rgba(208,59,59,0.2); }
+
 .footer { text-align: center; font-size: 10px; color: var(--muted); padding: 20px; }
 </style>
 
@@ -150,12 +200,21 @@ canvas { display: block; width: 100% !important; }
   <div class="filters">
     <div class="fgroup"><label>Per&iacute;odo De</label><select id="fPeriodoDe"></select></div>
     <div class="fgroup"><label>Per&iacute;odo At&eacute;</label><select id="fPeriodoAte"></select></div>
-    <div class="fgroup"><label>Produto</label><select id="fProduto"><option value="">Todos</option></select></div>
-    <div class="fgroup"><label>Segmento</label><select id="fSegmento"><option value="">Todos</option></select></div>
+    <div class="fgroup"><label>Produto</label><div class="multisel" id="msProduto"><div class="ms-display" tabindex="0">Todos</div><div class="ms-dropdown"></div></div></div>
+    <div class="fgroup"><label>Segmento</label><div class="multisel" id="msSegmento"><div class="ms-display" tabindex="0">Todos</div><div class="ms-dropdown"></div></div></div>
     <div class="fgroup"><label>Top N Empresas</label><select id="fTopN">
       <option value="10">Top 10</option><option value="15" selected>Top 15</option>
       <option value="20">Top 20</option><option value="50">Top 50</option><option value="0">Todas</option>
     </select></div>
+    <div class="fgroup"><label>Comparar Per&iacute;odos</label>
+      <label class="toggle-wrap"><input type="checkbox" id="fCompare"><span class="toggle-label">Ativar compara&ccedil;&atilde;o</span></label>
+    </div>
+  </div>
+  <div class="filters compare-row" id="compareRow" style="display:none">
+    <div class="fgroup"><label>Per&iacute;odo A &mdash; De</label><select id="fCompADe"></select></div>
+    <div class="fgroup"><label>Per&iacute;odo A &mdash; At&eacute;</label><select id="fCompAAte"></select></div>
+    <div class="fgroup"><label>Per&iacute;odo B &mdash; De</label><select id="fCompBDe"></select></div>
+    <div class="fgroup"><label>Per&iacute;odo B &mdash; At&eacute;</label><select id="fCompBAte"></select></div>
   </div>
 
   <div class="kpis" id="kpis"></div>
@@ -195,6 +254,10 @@ canvas { display: block; width: 100% !important; }
       <div style="position:relative"><canvas id="shareCanvas" height="260"></canvas></div>
       <div class="legend-row" id="shareLegend"></div>
     </div>
+    <div class="compare-card" id="compareCard" style="display:none">
+      <h3>Compara&ccedil;&atilde;o de Per&iacute;odos &mdash; Royal FIC</h3>
+      <div id="compareContent"></div>
+    </div>
   </div>
 
   <div class="footer">Royal FIC &middot; Intelig&ecirc;ncia Comercial &middot; Fonte: ANP &middot; Dados SP &middot; Jan/2025 a Fev/2026</div>
@@ -227,6 +290,65 @@ RAW.dados.forEach(r => {
 });
 periods.sort((a,b) => a.k - b.k);
 
+function setupMultiSelect(containerId, items) {
+  const container = document.getElementById(containerId);
+  const display = container.querySelector('.ms-display');
+  const dropdown = container.querySelector('.ms-dropdown');
+  const selected = new Set();
+
+  let html = '<div class="ms-option all-opt"><input type="checkbox" checked data-val="__all__"><span>Todos</span></div>';
+  items.forEach(item => { html += '<div class="ms-option"><input type="checkbox" data-val="'+item+'"><span>'+item+'</span>'; });
+  dropdown.innerHTML = html;
+
+  const allCb = dropdown.querySelector('[data-val="__all__"]');
+  const itemCbs = [...dropdown.querySelectorAll('[data-val]:not([data-val="__all__"])')];
+
+  function updateDisplay() {
+    if (selected.size === 0 || selected.size === items.length) {
+      display.textContent = 'Todos';
+    } else if (selected.size === 1) {
+      display.textContent = [...selected][0];
+    } else {
+      display.textContent = selected.size + ' selecionados';
+    }
+  }
+
+  allCb.addEventListener('change', () => {
+    if (allCb.checked) {
+      selected.clear();
+      itemCbs.forEach(cb => cb.checked = false);
+    }
+    updateDisplay();
+    render();
+  });
+
+  itemCbs.forEach(cb => {
+    cb.addEventListener('change', () => {
+      const val = cb.dataset.val;
+      if (cb.checked) {
+        selected.add(val);
+        allCb.checked = false;
+      } else {
+        selected.delete(val);
+        if (selected.size === 0) allCb.checked = true;
+      }
+      updateDisplay();
+      render();
+    });
+  });
+
+  display.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.multisel.open').forEach(ms => { if (ms !== container) ms.classList.remove('open'); });
+    container.classList.toggle('open');
+  });
+
+  container.getSelected = () => selected.size === 0 ? null : new Set(selected);
+  return container;
+}
+
+document.addEventListener('click', () => document.querySelectorAll('.multisel.open').forEach(ms => ms.classList.remove('open')));
+
 function initFilters() {
   const selDe = document.getElementById('fPeriodoDe');
   const selAte = document.getElementById('fPeriodoAte');
@@ -236,22 +358,56 @@ function initFilters() {
   });
   selDe.selectedIndex = 0;
   selAte.selectedIndex = periods.length - 1;
-  PRODUTOS.forEach(p => document.getElementById('fProduto').add(new Option(p, p)));
-  SEGMENTOS.forEach(s => document.getElementById('fSegmento').add(new Option(s, s)));
-  ['fPeriodoDe','fPeriodoAte','fProduto','fSegmento','fTopN'].forEach(id =>
+
+  setupMultiSelect('msProduto', PRODUTOS);
+  setupMultiSelect('msSegmento', SEGMENTOS);
+
+  ['fPeriodoDe','fPeriodoAte','fTopN'].forEach(id =>
     document.getElementById(id).addEventListener('change', render));
+
+  const compToggle = document.getElementById('fCompare');
+  const compRow = document.getElementById('compareRow');
+  const compSelects = ['fCompADe','fCompAAte','fCompBDe','fCompBAte'];
+  compSelects.forEach(id => {
+    const sel = document.getElementById(id);
+    periods.forEach(p => sel.add(new Option(p.label, p.k)));
+    sel.addEventListener('change', render);
+  });
+
+  const half = Math.floor(periods.length / 2);
+  document.getElementById('fCompADe').selectedIndex = 0;
+  document.getElementById('fCompAAte').selectedIndex = half > 0 ? half - 1 : 0;
+  document.getElementById('fCompBDe').selectedIndex = half;
+  document.getElementById('fCompBAte').selectedIndex = periods.length - 1;
+
+  compToggle.addEventListener('change', () => {
+    compRow.style.display = compToggle.checked ? 'flex' : 'none';
+    render();
+  });
 }
 
 function getFiltered() {
   const de = +document.getElementById('fPeriodoDe').value;
   const ate = +document.getElementById('fPeriodoAte').value;
-  const prod = document.getElementById('fProduto').value;
-  const seg = document.getElementById('fSegmento').value;
+  const selProd = document.getElementById('msProduto').getSelected();
+  const selSeg = document.getElementById('msSegmento').getSelected();
   return RAW.dados.filter(r => {
     const pk = r[0]*100+r[1];
     if (pk < de || pk > ate) return false;
-    if (prod && PRODUTOS[r[3]] !== prod) return false;
-    if (seg && SEGMENTOS[r[4]] !== seg) return false;
+    if (selProd && !selProd.has(PRODUTOS[r[3]])) return false;
+    if (selSeg && !selSeg.has(SEGMENTOS[r[4]])) return false;
+    return true;
+  });
+}
+
+function getFilteredRange(de, ate) {
+  const selProd = document.getElementById('msProduto').getSelected();
+  const selSeg = document.getElementById('msSegmento').getSelected();
+  return RAW.dados.filter(r => {
+    const pk = r[0]*100+r[1];
+    if (pk < de || pk > ate) return false;
+    if (selProd && !selProd.has(PRODUTOS[r[3]])) return false;
+    if (selSeg && !selSeg.has(SEGMENTOS[r[4]])) return false;
     return true;
   });
 }
@@ -286,8 +442,10 @@ function shortName(name, max) {
 function render() {
   const rows = getFiltered();
   const topN = +document.getElementById('fTopN').value;
-  const prod = document.getElementById('fProduto').value;
-  const seg = document.getElementById('fSegmento').value;
+  const selProd = document.getElementById('msProduto').getSelected();
+  const selSeg = document.getElementById('msSegmento').getSelected();
+  const prodLabel = selProd ? [...selProd].join(', ') : '';
+  const segLabel = selSeg ? [...selSeg].join(', ') : '';
   const de = +document.getElementById('fPeriodoDe').value;
   const ate = +document.getElementById('fPeriodoAte').value;
 
@@ -305,7 +463,82 @@ function render() {
   renderProductMix(rows);
   renderSegmentShare(rows);
   renderMarketShareEvo(rows);
-  renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows, prod, seg, de, ate);
+  renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows, prodLabel, segLabel, de, ate);
+
+  const comparing = document.getElementById('fCompare').checked;
+  const compareCard = document.getElementById('compareCard');
+  if (comparing) {
+    compareCard.style.display = '';
+    renderComparison();
+  } else {
+    compareCard.style.display = 'none';
+  }
+}
+
+function renderComparison() {
+  const aDe = +document.getElementById('fCompADe').value;
+  const aAte = +document.getElementById('fCompAAte').value;
+  const bDe = +document.getElementById('fCompBDe').value;
+  const bAte = +document.getElementById('fCompBAte').value;
+
+  const rowsA = getFilteredRange(aDe, aAte);
+  const rowsB = getFilteredRange(bDe, bAte);
+
+  function calcStats(rows) {
+    const ranking = aggByEmpresa(rows);
+    const totalMkt = ranking.reduce((s,r) => s + r.vol, 0);
+    const rd = ranking.find(r => r.idx === ROYAL_IDX);
+    const royalVol = rd ? rd.vol : 0;
+    const royalRank = rd ? ranking.indexOf(rd) + 1 : '-';
+    const royalShare = totalMkt > 0 ? royalVol / totalMkt : 0;
+    const royalProd = {};
+    rows.filter(r => r[2] === ROYAL_IDX).forEach(r => { const p = PRODUTOS[r[3]]; royalProd[p] = (royalProd[p]||0) + r[5]; });
+    const topProd = Object.entries(royalProd).sort((a,b) => b[1]-a[1]);
+    const royalSeg = {};
+    rows.filter(r => r[2] === ROYAL_IDX).forEach(r => { const s = SEGMENTOS[r[4]]; royalSeg[s] = (royalSeg[s]||0) + r[5]; });
+    const topSeg = Object.entries(royalSeg).sort((a,b) => b[1]-a[1]);
+    return { totalMkt, royalVol, royalRank, royalShare, n: ranking.length, topProd: topProd[0], topSeg: topSeg[0] };
+  }
+
+  const a = calcStats(rowsA);
+  const b = calcStats(rowsB);
+
+  const pA = periods.find(p => p.k === aDe);
+  const pAe = periods.find(p => p.k === aAte);
+  const pB = periods.find(p => p.k === bDe);
+  const pBe = periods.find(p => p.k === bAte);
+  const labelA = pA && pAe ? pA.label + ' a ' + pAe.label : 'Período A';
+  const labelB = pB && pBe ? pB.label + ' a ' + pBe.label : 'Período B';
+
+  function delta(valA, valB, suffix) {
+    if (!valA || valA === 0) return '<span style="color:var(--muted)">N/A</span>';
+    const d = ((valB - valA) / valA * 100);
+    const cls = d >= 0 ? 'positive' : 'negative';
+    const sign = d >= 0 ? '+' : '';
+    return '<div class="cmp-delta '+cls+'">Variação: '+sign+nf.format(d)+'%'+(suffix||'')+'</div>';
+  }
+
+  let html = '<div class="cmp-grid">';
+  [['A', labelA, a], ['B', labelB, b]].forEach(([letter, label, s]) => {
+    html += '<div class="cmp-col"><h4>'+label+'</h4><div class="cmp-metrics">';
+    html += '<div class="cmp-metric"><div class="clab">Mercado Total</div><div class="cval">'+nf.format(s.totalMkt)+'</div></div>';
+    html += '<div class="cmp-metric" style="border-left:3px solid var(--dourado)"><div class="clab">Royal FIC</div><div class="cval">'+nf.format(s.royalVol)+'</div></div>';
+    html += '<div class="cmp-metric"><div class="clab">Ranking</div><div class="cval">'+s.royalRank+'º</div></div>';
+    html += '<div class="cmp-metric"><div class="clab">Market Share</div><div class="cval">'+pct(s.royalShare)+'</div></div>';
+    html += '</div>';
+    if (s.topProd) html += '<div style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">Produto: <b style="color:var(--ink)">'+s.topProd[0]+'</b> ('+nf.format(s.topProd[1])+' mil m³)</div>';
+    if (s.topSeg) html += '<div style="font-size:11px;color:var(--muted);margin-top:2px;text-align:center">Segmento: <b style="color:var(--ink)">'+s.topSeg[0]+'</b></div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  html += '<div style="margin-top:14px"><h4 style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;text-align:center">Variação Período A → B</h4>';
+  html += '<div class="cmp-metrics">';
+  html += '<div>'+delta(a.totalMkt, b.totalMkt, ' mercado')+'</div>';
+  html += '<div>'+delta(a.royalVol, b.royalVol, ' Royal FIC')+'</div>';
+  html += '</div></div>';
+
+  document.getElementById('compareContent').innerHTML = html;
 }
 
 function renderKPIs(total, royal, rank, share, n) {
