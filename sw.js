@@ -1,4 +1,4 @@
-const CACHE = 'analytics-rfic-v1';
+const CACHE = 'analytics-rfic-v2';
 const SHELL = [
   './',
   './index.html',
