@@ -424,6 +424,8 @@ function setupMultiSelect(containerId, items, opts) {
     if (container.classList.contains('open') && searchInput) { setTimeout(() => searchInput.focus(), 50); }
   });
 
+  dropdown.addEventListener('click', (e) => { e.stopPropagation(); });
+
   container.getSelected = () => selected.size === 0 ? null : new Set(selected);
   return container;
 }
