@@ -266,7 +266,7 @@ canvas { display: block; width: 100% !important; }
   </div>
   <div style="height:14px"></div>
   <div class="analysis-box" id="analysisBox">
-    <h3>An&aacute;lise de Mercado &mdash; Royal FIC</h3>
+    <h3>Intelig&ecirc;ncia de Mercado</h3>
     <p id="analysisTxt">Selecione os filtros para gerar a an&aacute;lise.</p>
   </div>
 
@@ -1105,8 +1105,108 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
   const royalGrowth = calcGrowth(ROYAL_IDX);
   const royalMix = getMix(ROYAL_IDX);
 
-  // Build competitive analysis
-  let html = '<b>Periodo:</b> '+periodStr+'.'+filtroTxt+'<br><b>Posicao:</b> Royal FIC ocupa a <b>'+royalRank+'a posicao</b> com '+nf.format(royalVol)+' mil m\u00B3 (share: '+pct(royalShare)+') num mercado de '+nf.format(totalMkt)+' mil m\u00B3.';
+  // Market-wide growth
+  function calcMarketGrowth() {
+    if (pks.length < 2) return 0;
+    let firstTotal = 0, lastTotal = 0;
+    Object.values(byPeriod[pks[0]] || {}).forEach(v => firstTotal += v);
+    Object.values(byPeriod[pks[pks.length-1]] || {}).forEach(v => lastTotal += v);
+    return firstTotal > 0 ? ((lastTotal - firstTotal) / firstTotal * 100) : 0;
+  }
+  const mktGrowth = calcMarketGrowth();
+
+  // Market concentration (top 3 share)
+  const top3Vol = ranking.slice(0, 3).reduce((s,r) => s + r.vol, 0);
+  const top3Share = totalMkt > 0 ? top3Vol / totalMkt : 0;
+
+  // Product breakdown for total market
+  const mktProdMix = {};
+  rows.forEach(r => { const p = PRODUTOS[r[3]]; mktProdMix[p] = (mktProdMix[p]||0) + r[5]; });
+  const mktProdRanked = Object.entries(mktProdMix).sort((a,b) => b[1]-a[1]);
+  const mktTopProd = mktProdRanked[0];
+
+  // Segment breakdown for total market
+  const mktSegMix = {};
+  rows.forEach(r => { const s = SEGMENTOS[r[4]]; mktSegMix[s] = (mktSegMix[s]||0) + r[5]; });
+  const mktSegRanked = Object.entries(mktSegMix).sort((a,b) => b[1]-a[1]);
+  const mktTopSeg = mktSegRanked[0];
+
+  // Product growth for market
+  const mktProdGrowth = {};
+  if (pks.length >= 2) {
+    const byPkProd = {};
+    rows.forEach(r => {
+      const pk = r[0]*100+r[1], p = PRODUTOS[r[3]], k = pk+'|'+p;
+      byPkProd[k] = (byPkProd[k]||0) + r[5];
+    });
+    const fp = pks[0], lp = pks[pks.length-1];
+    mktProdRanked.forEach(([p]) => {
+      const fv = byPkProd[fp+'|'+p]||0, lv = byPkProd[lp+'|'+p]||0;
+      mktProdGrowth[p] = fv > 0 ? ((lv-fv)/fv*100) : (lv > 0 ? 100 : 0);
+    });
+  }
+
+  // Build analysis
+  let html = '<b style="color:var(--dourado)">PANORAMA DO SETOR</b>';
+  html += '<br>Mercado total: '+nf.format(totalMkt)+' mil m\u00B3 | Evolucao no periodo: '+(mktGrowth>=0?'+':'')+nf.format(mktGrowth)+'%';
+  html += '<br>Concentracao: Top 3 det\u00E9m '+pct(top3Share)+' do mercado ('+ranking.slice(0,3).map(r => shortName(r.name,15)).join(', ')+')';
+
+  // Products trend
+  if (mktTopProd) {
+    html += '<br><br><b>Produtos</b>: ';
+    html += mktProdRanked.slice(0, 4).map(([p, v]) => {
+      const share = totalMkt > 0 ? v / totalMkt * 100 : 0;
+      const g = mktProdGrowth[p];
+      return p + ' (' + nf.format(share) + '%' + (g !== undefined ? ', ' + (g>=0?'+':'') + nf.format(g) + '%' : '') + ')';
+    }).join(' | ');
+  }
+
+  // Segments trend
+  if (mktTopSeg) {
+    html += '<br><b>Segmentos</b>: ';
+    html += mktSegRanked.slice(0, 4).map(([s, v]) => {
+      const share = totalMkt > 0 ? v / totalMkt * 100 : 0;
+      return s + ' (' + nf.format(share) + '%)';
+    }).join(' | ');
+  }
+
+  // Royal FIC vs Market
+  html += '<br><br><b style="color:var(--dourado)">ROYAL FIC vs MERCADO</b>';
+  const royalAboveMkt = royalGrowth > mktGrowth;
+  html += '<br>Crescimento Royal FIC: '+(royalGrowth>=0?'+':'')+nf.format(royalGrowth)+'% vs Mercado '+(mktGrowth>=0?'+':'')+nf.format(mktGrowth)+'% ';
+  if (royalAboveMkt) {
+    html += '<span style="color:#0E8A5C"><b>\u2014 Acima do mercado, ganhando share</b></span>';
+  } else if (Math.abs(royalGrowth - mktGrowth) < 2) {
+    html += '<span style="color:var(--dourado)"><b>\u2014 Acompanhando o mercado</b></span>';
+  } else {
+    html += '<span style="color:#C25B3A"><b>\u2014 Abaixo do mercado, perdendo share</b></span>';
+  }
+
+  // Royal FIC product performance vs market
+  if (royalMix.topProd && pks.length >= 2) {
+    const royalProdG = growthByProd(ROYAL_IDX);
+    const prodComps = [];
+    Object.entries(royalProdG).forEach(([p, data]) => {
+      const mktG = mktProdGrowth[p] || 0;
+      const diff = data.growth - mktG;
+      if (Math.abs(diff) > 5) {
+        prodComps.push({ prod: p, royalG: data.growth, mktG, diff, vol: data.last });
+      }
+    });
+    if (prodComps.length > 0) {
+      prodComps.sort((a,b) => b.diff - a.diff);
+      const above = prodComps.filter(p => p.diff > 0);
+      const below = prodComps.filter(p => p.diff < 0);
+      if (above.length > 0) {
+        html += '<br><span style="color:#0E8A5C">Acima do mercado em:</span> ';
+        html += above.map(p => p.prod + ' ('+(p.royalG>=0?'+':'')+nf.format(p.royalG)+'% vs mkt '+(p.mktG>=0?'+':'')+nf.format(p.mktG)+'%)').join('; ');
+      }
+      if (below.length > 0) {
+        html += '<br><span style="color:#C25B3A">Abaixo do mercado em:</span> ';
+        html += below.map(p => p.prod + ' ('+(p.royalG>=0?'+':'')+nf.format(p.royalG)+'% vs mkt '+(p.mktG>=0?'+':'')+nf.format(p.mktG)+'%)').join('; ');
+      }
+    }
+  }
 
   // Growth by product for a company
   function growthByProd(empIdx) {
