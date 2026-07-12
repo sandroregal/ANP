@@ -673,7 +673,7 @@ function renderHighlights(rows) {
   }
 
   highlights.sort((a,b) => a.rank - b.rank);
-  box.style.display = '';
+  box.style.display = 'block';
 
   grid.innerHTML = highlights.map(h => {
     const rankClass = h.rank === 1 ? 'top1' : h.rank <= 3 ? 'top3' : 'top5';
