@@ -1,4 +1,7 @@
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E4C89">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Analytics Distribuidoras — Royal FIC</title>
 <style>
 :root {
@@ -1131,4 +1134,9 @@ window.addEventListener('resize', render);
     canvas.addEventListener('touchend', hideTooltip);
   });
 })();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
 </script>
