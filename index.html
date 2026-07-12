@@ -1391,10 +1391,16 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
           || Object.entries(sg).some(([s,d]) => d.growth > 10 && (!royalSegGrowth[s] || d.growth > royalSegGrowth[s].growth + 5));
     });
 
+    const anyClosing = compData.some(c => c.growth > royalGrowth);
+    const closestClosing = compData.filter(c => c.growth > royalGrowth)
+      .reduce((min, c) => Math.min(min, royalVol > 0 ? (royalVol - c.vol) / royalVol * 100 : 100), 100);
+
     let threatLevel, threatColor;
-    if (anyFastGrower || closestGap < 8) {
+    if (anyFastGrower && closestGap < 8) {
       threatLevel = 'ALTO'; threatColor = '#C25B3A';
-    } else if (anyAdvancing || closestGap < 15) {
+    } else if ((anyClosing && closestClosing < 8) || (anyFastGrower && anyAdvancing)) {
+      threatLevel = 'ALTO'; threatColor = '#C25B3A';
+    } else if (anyAdvancing || (anyClosing && closestGap < 15)) {
       threatLevel = 'MODERADO'; threatColor = '#C9952E';
     } else {
       threatLevel = 'BAIXO'; threatColor = '#0E8A5C';
