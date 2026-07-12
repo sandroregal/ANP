@@ -947,23 +947,20 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
   });
   const pks = Object.keys(byPeriod).map(Number).sort();
 
-  // Find Royal FIC position and identify 2 main competitors
+  // Find Royal FIC position and identify 2 competitors in the rearview mirror
   const royalRankIdx = ranking.findIndex(r => r.idx === ROYAL_IDX);
   let competitors = [];
-  if (royalRankIdx <= 2) {
-    // Royal is in top 3, look at companies just below
+  if (royalRankIdx >= 0 && royalRankIdx < ranking.length - 1) {
+    // Companies ranked just below Royal — the ones catching up from behind
     competitors = ranking.slice(royalRankIdx + 1, royalRankIdx + 3).filter(Boolean);
-  } else {
-    // Companies ranked above Royal (threats from above)
-    competitors = ranking.slice(Math.max(0, royalRankIdx - 2), royalRankIdx);
   }
-  // Ensure we have 2 competitors
+  // If Royal is last or not enough behind, fill from above
   if (competitors.length < 2 && ranking.length > 2) {
     if (royalRankIdx > 0 && !competitors.find(c => c.idx === ranking[royalRankIdx-1].idx)) {
-      competitors.unshift(ranking[royalRankIdx-1]);
+      competitors.push(ranking[royalRankIdx-1]);
     }
-    if (competitors.length < 2 && royalRankIdx < ranking.length - 1 && !competitors.find(c => c.idx === ranking[royalRankIdx+1].idx)) {
-      competitors.push(ranking[royalRankIdx+1]);
+    if (competitors.length < 2 && royalRankIdx > 1 && !competitors.find(c => c.idx === ranking[royalRankIdx-2].idx)) {
+      competitors.push(ranking[royalRankIdx-2]);
     }
   }
 
@@ -996,7 +993,8 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
   let html = '<b>Periodo:</b> '+periodStr+'.'+filtroTxt+'<br><b>Posicao:</b> Royal FIC ocupa a <b>'+royalRank+'a posicao</b> com '+nf.format(royalVol)+' mil m\u00B3 (share: '+pct(royalShare)+') num mercado de '+nf.format(totalMkt)+' mil m\u00B3.';
 
   if (competitors.length > 0) {
-    html += '<br><br><b style="color:var(--dourado)">ANALISE COMPETITIVA</b>';
+    html += '<br><br><b style="color:var(--dourado)">RETROVISOR COMPETITIVO</b>';
+    html += '<br><span style="color:var(--muted);font-size:11px">Concorrentes logo atras no ranking que podem ultrapassar a Royal FIC</span>';
 
     // Competitor profiles
     const compData = competitors.map(comp => {
@@ -1008,14 +1006,21 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
     });
 
     compData.forEach(comp => {
+      const gap = royalVol > 0 ? ((royalVol - comp.vol) / royalVol * 100) : 0;
       html += '<br><b>'+shortName(comp.name,30)+' (#'+comp.rank+')</b>: '+nf.format(comp.vol)+' mil m\u00B3, share '+pct(comp.share)+', crescimento '+(comp.growth>=0?'+':'')+nf.format(comp.growth)+'%';
+      html += ' | Distancia: '+nf.format(gap)+'% atras';
       if (comp.mix.topProd) html += ' | Principal: '+comp.mix.topProd[0];
     });
 
-    // Strengths
+    // Strengths (Royal FIC advantages over pursuers)
     let strengths = [];
+    const royalAheadAll = compData.every(c => royalVol > c.vol);
+    if (royalAheadAll && compData.length > 0) {
+      const closestGap = Math.min(...compData.map(c => royalVol - c.vol));
+      strengths.push('A frente de todos os perseguidores (margem minima: '+nf.format(closestGap)+' mil m\u00B3)');
+    }
     if (royalGrowth > Math.max(...compData.map(c => c.growth))) {
-      strengths.push('Maior crescimento no periodo ('+(royalGrowth>=0?'+':'')+nf.format(royalGrowth)+'% vs concorrentes)');
+      strengths.push('Cresce mais que os perseguidores ('+(royalGrowth>=0?'+':'')+nf.format(royalGrowth)+'%)');
     }
     if (royalMix.topProd) {
       const royalTopProdShare = royalMix.topProd[1] / royalMix.total;
@@ -1024,7 +1029,7 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
         return (cv / c.mix.total) < royalTopProdShare;
       });
       if (competitorsHaveLess) {
-        strengths.push('Domina em '+royalMix.topProd[0]+' ('+nf.format(royalTopProdShare*100)+'% do mix vs menor concentracao dos concorrentes)');
+        strengths.push('Domina em '+royalMix.topProd[0]+' ('+nf.format(royalTopProdShare*100)+'% do mix vs menor concentracao dos perseguidores)');
       }
     }
     if (royalMix.topSeg) {
@@ -1034,37 +1039,37 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
       }
     }
     if (strengths.length === 0 && royalGrowth > 0) {
-      strengths.push('Crescimento positivo de '+(royalGrowth>=0?'+':'')+nf.format(royalGrowth)+'% no periodo');
+      strengths.push('Crescimento positivo de +'+ nf.format(royalGrowth)+'% no periodo');
     }
 
-    // Weaknesses
-    let weaknesses = [];
+    // Alerts (pursuers gaining ground)
+    let alerts = [];
     compData.forEach(comp => {
       if (comp.growth > royalGrowth + 5) {
-        weaknesses.push(shortName(comp.name,20)+' cresce mais rapido ('+(comp.growth>=0?'+':'')+nf.format(comp.growth)+'% vs '+(royalGrowth>=0?'+':'')+nf.format(royalGrowth)+'%)');
+        alerts.push(shortName(comp.name,20)+' cresce mais rapido ('+(comp.growth>=0?'+':'')+nf.format(comp.growth)+'% vs '+(royalGrowth>=0?'+':'')+nf.format(royalGrowth)+'%) \u2014 esta fechando a distancia');
       }
-      if (comp.vol > royalVol * 1.5) {
-        weaknesses.push(shortName(comp.name,20)+' tem '+nf.format(comp.vol/royalVol)+'x o volume da Royal FIC');
+      if (royalVol > 0 && comp.vol > royalVol * 0.85) {
+        alerts.push(shortName(comp.name,20)+' esta muito proximo (apenas '+nf.format((royalVol-comp.vol)/royalVol*100)+'% atras)');
       }
     });
-    if (royalGrowth < 0) {
-      weaknesses.push('Volume em queda no periodo ('+nf.format(royalGrowth)+'%)');
+    if (royalGrowth < 0 && compData.some(c => c.growth > 0)) {
+      alerts.push('Royal FIC em queda ('+nf.format(royalGrowth)+'%) enquanto perseguidores crescem \u2014 risco de ultrapassagem');
     }
 
-    // Threat level
+    // Threat level from rearview
     const avgCompGrowth = compData.reduce((s,c) => s + c.growth, 0) / (compData.length||1);
-    const volumeGap = compData.filter(c => c.rank < royalRankIdx + 1).reduce((s,c) => s + (c.vol - royalVol), 0);
+    const closestPursuer = compData.length > 0 ? Math.min(...compData.map(c => royalVol > 0 ? (royalVol - c.vol) / royalVol : 1)) : 1;
     let threatLevel = 'MODERADO';
     let threatColor = '#C9952E';
-    if (avgCompGrowth > royalGrowth + 10 || (volumeGap > royalVol * 0.5)) {
+    if (avgCompGrowth > royalGrowth + 10 || closestPursuer < 0.1) {
       threatLevel = 'ALTO'; threatColor = '#C25B3A';
-    } else if (royalGrowth > avgCompGrowth + 5 && royalVol > 0) {
+    } else if (royalGrowth > avgCompGrowth + 5 && closestPursuer > 0.3) {
       threatLevel = 'BAIXO'; threatColor = '#0E8A5C';
     }
 
-    html += '<br><br><b>Pontos Fortes Royal FIC:</b> ' + (strengths.length > 0 ? strengths.join('; ') : 'Posicao estavel no mercado');
-    html += '<br><b>Vulnerabilidades:</b> ' + (weaknesses.length > 0 ? weaknesses.join('; ') : 'Sem ameacas significativas identificadas');
-    html += '<br><b>Nivel de Ameaca Competitiva: <span style="color:'+threatColor+'">'+threatLevel+'</span></b>';
+    html += '<br><br><b>Vantagens sobre perseguidores:</b> ' + (strengths.length > 0 ? strengths.join('; ') : 'Posicao estavel no mercado');
+    html += '<br><b>Alertas do retrovisor:</b> ' + (alerts.length > 0 ? alerts.join('; ') : 'Nenhum perseguidor com ameaca iminente');
+    html += '<br><b>Risco de ultrapassagem: <span style="color:'+threatColor+'">'+threatLevel+'</span></b>';
   } else {
     html += '<br>Dados insuficientes para analise competitiva.';
   }
