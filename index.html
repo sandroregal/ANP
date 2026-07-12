@@ -1344,27 +1344,86 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
         html += segAdvancing.map(sa => sa.seg+' ('+fmtG(sa.compGrowth)+' vs Royal '+fmtG(sa.royalGrowth)+')').join('; ');
       }
 
+      // Veredito por concorrente
+      const gapPct = royalVol > 0 ? ((royalVol - comp.vol) / royalVol * 100) : 0;
+      const closing = comp.growth > royalGrowth;
+      const fastClosing = comp.growth > royalGrowth + 10;
+      const tightGap = gapPct < 10;
+
+      let verdict = '';
       if (prodAdvancing.length === 0 && segAdvancing.length === 0) {
-        html += '<br><span style="color:var(--muted)">Sem avancos significativos sobre a Royal FIC</span>';
+        if (closing) {
+          verdict = 'Cresce, mas sem ganhar terreno em produto ou segmento especifico. Monitorar.';
+        } else {
+          verdict = 'Sem ameaca no momento \u2014 perdendo volume e sem avancos sobre a Royal.';
+        }
+      } else if (fastClosing && tightGap) {
+        const where = prodAdvancing.map(pa=>pa.prod).concat(segAdvancing.map(sa=>sa.seg));
+        verdict = '\u26a0\ufe0f Gap curto e crescendo rapido. Proteger: '+where.join(', ')+'.';
+      } else if (prodAdvancing.length > 0 || segAdvancing.length > 0) {
+        const threats = prodAdvancing.map(pa => {
+          const royalFalling = pa.royalGrowth < -5;
+          return pa.prod + (royalFalling ? ' (Royal caindo)' : '');
+        });
+        const segThreats = segAdvancing.map(sa => {
+          const royalFalling = sa.royalGrowth < -5;
+          return sa.seg + (royalFalling ? ' (Royal caindo)' : '');
+        });
+        const allThreats = threats.concat(segThreats);
+        if (closing) {
+          verdict = 'Ganhando terreno em '+allThreats.join(', ')+'. Acao: defender esses pontos.';
+        } else {
+          verdict = 'Royal abre vantagem geral, mas cede espaco em '+allThreats.join(', ')+'. Ficar atento.';
+        }
+      }
+      if (verdict) {
+        html += '<br><span style="font-size:11.5px;color:var(--ink);font-style:italic">\u279c '+verdict+'</span>';
       }
     });
 
     // Overall threat assessment
     const avgCompGrowth = compData.reduce((s,c) => s + c.growth, 0) / (compData.length||1);
-    const closestPursuer = compData.length > 0 ? Math.min(...compData.map(c => royalVol > 0 ? (royalVol - c.vol) / royalVol : 1)) : 1;
+    const closestGap = compData.length > 0 ? Math.min(...compData.map(c => royalVol > 0 ? (royalVol - c.vol) / royalVol * 100 : 100)) : 100;
     const anyFastGrower = compData.some(c => c.growth > royalGrowth + 10);
-    let threatLevel = 'MODERADO';
-    let threatColor = '#C9952E';
-    if (anyFastGrower || closestPursuer < 0.1) {
+    const anyAdvancing = compData.some(c => {
+      const pg = growthByProd(c.idx), sg = growthBySeg(c.idx);
+      return Object.entries(pg).some(([p,d]) => d.growth > 10 && (!royalProdGrowth[p] || d.growth > royalProdGrowth[p].growth + 5))
+          || Object.entries(sg).some(([s,d]) => d.growth > 10 && (!royalSegGrowth[s] || d.growth > royalSegGrowth[s].growth + 5));
+    });
+
+    let threatLevel, threatColor;
+    if (anyFastGrower || closestGap < 8) {
       threatLevel = 'ALTO'; threatColor = '#C25B3A';
-    } else if (royalGrowth > avgCompGrowth + 5 && closestPursuer > 0.3) {
+    } else if (anyAdvancing || closestGap < 15) {
+      threatLevel = 'MODERADO'; threatColor = '#C9952E';
+    } else {
       threatLevel = 'BAIXO'; threatColor = '#0E8A5C';
     }
 
     html += '<br><br><span style="color:var(--muted)">Risco de ultrapassagem:</span> <b style="color:'+threatColor+'">'+threatLevel+'</b>';
-    if (threatLevel === 'ALTO') html += ' \u2014 atencao nos produtos e segmentos indicados';
-    else if (threatLevel === 'BAIXO') html += ' \u2014 vantagem confortavel';
-    else html += ' \u2014 monitorar nos proximos periodos';
+    if (threatLevel === 'ALTO') {
+      const dangerProds = [], dangerSegs = [];
+      compData.forEach(c => {
+        Object.entries(c.prodG).forEach(([p,d]) => {
+          const rp = royalProdGrowth[p];
+          if (d.growth > 10 && rp && rp.growth < -5) dangerProds.push(p);
+        });
+        Object.entries(c.segG).forEach(([s,d]) => {
+          const rs = royalSegGrowth[s];
+          if (d.growth > 10 && rs && rs.growth < -5) dangerSegs.push(s);
+        });
+      });
+      const dangers = [...new Set(dangerProds.concat(dangerSegs))];
+      if (dangers.length > 0) {
+        html += ' \u2014 proteger *'+dangers.join(', ')+'* onde Royal cede e concorrente avanca';
+      } else {
+        html += ' \u2014 gap apertado, manter ritmo de crescimento';
+      }
+    } else if (threatLevel === 'BAIXO') {
+      html += ' \u2014 vantagem confortavel, manter monitoramento';
+    } else {
+      html += ' \u2014 sem risco imediato, mas monitorar avancos pontuais';
+    }
   } else {
     html += '<br><span style="color:var(--muted)">Dados insuficientes para analise competitiva.</span>';
   }
