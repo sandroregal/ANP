@@ -79,6 +79,45 @@ RAW = {
 12. Separate tables, dividers, reduce color noise
 13. Nationwide data (27 UFs) + UF filter
 
+## Ecossistema de Apps SP (repo Vendedores)
+Três apps PWA no mesmo repo `sandroregal/Vendedores`, mesmo origin (compartilham IndexedDB):
+
+### 1. Copiloto Comercial SP (`index.html`)
+- Fases: Conquista, Retomada, Cross-sell, Pacing
+- Base histórica: `historico_SP.json` → IndexedDB `copilotoSP`
+- Tab bar fixa inferior com navegação entre apps (🧭📊📅)
+
+### 2. Pacing Vendedores SP (`pacing.html`)
+- Acompanhamento diário de vendas vs meta por vendedor
+- Fonte: YVIEWCOPA (CSV exportado do SAP)
+- **Colunas do YVIEWCOPA (0-indexed):**
+  - c[6] = Data de lançamento
+  - c[7] = Artigo (código do produto)
+  - c[9] = **Denominação = NOME DO VENDEDOR** (descoberta chave)
+  - c[16] = Escritório de vendas
+  - c[21] = Grupo de preço = código do SUPERVISOR (03, 08, 01, 02, 05) — NÃO é vendedor
+  - c[23] = Denominação_2 = nome da BANDEIRA (segmento)
+  - c[24] = Qtd.vendas (volume)
+  - c[49] = ID parceiro (código do cliente)
+- **Escritórios SP:** FI09, FI10, FI13, FI22, FI27
+- **"Mesa Regional SP"** = volume de gestão/mesa, excluído do pacing individual (~40k m³)
+- **Segmentos (classifySeg):** Bandeira Branca, Consumidor Final, Bandeirado, Usinas, TRR, Congênere
+- **Produtos (artFam):** S10 (146-148), S500 (140-141), Gasolina (101-103), Hidratado (109)
+- 4 abas: Volume (ordena por vol realizado), Clientes (por nº cli), Produtos, Análise (consolidada do time)
+- Não depende do EMB/IndexedDB — lê vendedor direto do CSV c[9]
+- PWA: `manifest-pacing.webmanifest`, SW compartilhado (`sw.js`)
+
+### 3. Mes-Corrente (`sandroregal/Mes-Corrente/`)
+- Repo separado, mesmo YVIEWCOPA como fonte
+- URL: `sandroregal.github.io/Mes-Corrente/`
+
+### Navegação entre Apps
+- Barra de ícones compacta (🧭 Copiloto · 📊 Pacing · 📅 Mês)
+- App atual fica opaco/desabilitado, outros são links
+- No Copiloto: ícones ficam na nav fixa inferior (acima dos botões de fase)
+- No Pacing e Mes-Corrente: ícones ficam no rodapé
+- URLs case-sensitive: `/Vendedores/`, `/Mes-Corrente/` (maiúsculas importam no GitHub Pages)
+
 ## Cache do Service Worker
 Ao atualizar o app, o usuário pode precisar:
 - Fechar e reabrir o app (PWA)
