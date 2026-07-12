@@ -116,6 +116,40 @@ header {
 .analysis-box h3 { font-size: 12px; font-weight: 800; color: var(--dourado); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
 .analysis-box p { font-size: 13px; line-height: 1.7; color: var(--ink); }
 
+.highlights-box {
+  margin: 0 20px; padding: 0; display: none;
+}
+.highlights-box h3 {
+  font-size: 12px; font-weight: 800; color: var(--azul2); margin-bottom: 10px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.hl-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px;
+}
+.hl-card {
+  background: var(--card); border-radius: 10px; padding: 12px 14px;
+  border: 1px solid var(--line); border-left: 4px solid var(--azul2);
+  font-size: 12px; line-height: 1.5;
+}
+.hl-card.gold { border-left-color: var(--dourado); }
+.hl-card .hl-title {
+  font-weight: 800; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.4px; color: var(--muted); margin-bottom: 4px;
+}
+.hl-card .hl-rank {
+  font-size: 22px; font-weight: 800; line-height: 1; margin: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.hl-card .hl-rank.top1 { color: var(--dourado); }
+.hl-card .hl-rank.top3 { color: var(--azul2); }
+.hl-card .hl-rank.top5 { color: var(--muted); }
+.hl-card .hl-detail { font-size: 11px; color: var(--muted); }
+@media (max-width: 768px) {
+  .highlights-box { margin: 0 12px; }
+  .hl-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .hl-card { padding: 10px; }
+  .hl-card .hl-rank { font-size: 18px; }
+}
 canvas { display: block; width: 100% !important; }
 
 .ranking-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -225,6 +259,11 @@ canvas { display: block; width: 100% !important; }
   </div>
 
   <div class="kpis" id="kpis"></div>
+  <div style="height:14px"></div>
+  <div class="highlights-box" id="highlightsBox">
+    <h3>Destaques Royal FIC</h3>
+    <div class="hl-grid" id="hlGrid"></div>
+  </div>
   <div style="height:14px"></div>
   <div class="analysis-box" id="analysisBox">
     <h3>An&aacute;lise de Mercado &mdash; Royal FIC</h3>
@@ -492,6 +531,7 @@ function render() {
   const royalShare = totalMkt > 0 ? royalVol / totalMkt : 0;
 
   renderKPIs(totalMkt, royalVol, royalRank, royalShare, ranking.length);
+  renderHighlights(rows);
   renderRanking(ranking, totalMkt, topN);
   renderEvolution(rows, ranking, topN);
   renderRoyalEvolution(rows);
@@ -574,6 +614,82 @@ function renderComparison() {
   html += '</div></div>';
 
   document.getElementById('compareContent').innerHTML = html;
+}
+
+function renderHighlights(rows) {
+  const box = document.getElementById('highlightsBox');
+  const grid = document.getElementById('hlGrid');
+  const highlights = [];
+
+  // Rank Royal FIC per product
+  const prodNames = [...new Set(rows.map(r => PRODUTOS[r[3]]))];
+  prodNames.forEach(prod => {
+    const prodRows = rows.filter(r => PRODUTOS[r[3]] === prod);
+    const byEmp = {};
+    prodRows.forEach(r => { byEmp[r[2]] = (byEmp[r[2]]||0) + r[5]; });
+    const ranked = Object.entries(byEmp).map(([k,v]) => ({idx:+k, vol:v})).sort((a,b) => b.vol - a.vol);
+    const royalPos = ranked.findIndex(r => r.idx === ROYAL_IDX);
+    if (royalPos >= 0 && royalPos < 5) {
+      const royalVol = ranked[royalPos].vol;
+      const total = ranked.reduce((s,r) => s + r.vol, 0);
+      const share = total > 0 ? royalVol / total : 0;
+      const leader = ranked[0];
+      highlights.push({
+        type: 'produto', name: prod, rank: royalPos + 1,
+        vol: royalVol, share, total: ranked.length,
+        leaderName: royalPos > 0 ? shortName(EMPRESAS[leader.idx], 20) : null,
+        leaderVol: royalPos > 0 ? leader.vol : null,
+        gap: royalPos > 0 && leader.vol > 0 ? ((leader.vol - royalVol) / leader.vol * 100) : 0
+      });
+    }
+  });
+
+  // Rank Royal FIC per segment
+  const segNames = [...new Set(rows.map(r => SEGMENTOS[r[4]]))];
+  segNames.forEach(seg => {
+    const segRows = rows.filter(r => SEGMENTOS[r[4]] === seg);
+    const byEmp = {};
+    segRows.forEach(r => { byEmp[r[2]] = (byEmp[r[2]]||0) + r[5]; });
+    const ranked = Object.entries(byEmp).map(([k,v]) => ({idx:+k, vol:v})).sort((a,b) => b.vol - a.vol);
+    const royalPos = ranked.findIndex(r => r.idx === ROYAL_IDX);
+    if (royalPos >= 0 && royalPos < 5) {
+      const royalVol = ranked[royalPos].vol;
+      const total = ranked.reduce((s,r) => s + r.vol, 0);
+      const share = total > 0 ? royalVol / total : 0;
+      const leader = ranked[0];
+      highlights.push({
+        type: 'segmento', name: seg, rank: royalPos + 1,
+        vol: royalVol, share, total: ranked.length,
+        leaderName: royalPos > 0 ? shortName(EMPRESAS[leader.idx], 20) : null,
+        leaderVol: royalPos > 0 ? leader.vol : null,
+        gap: royalPos > 0 && leader.vol > 0 ? ((leader.vol - royalVol) / leader.vol * 100) : 0
+      });
+    }
+  });
+
+  if (highlights.length === 0) {
+    box.style.display = 'none';
+    return;
+  }
+
+  highlights.sort((a,b) => a.rank - b.rank);
+  box.style.display = '';
+
+  grid.innerHTML = highlights.map(h => {
+    const rankClass = h.rank === 1 ? 'top1' : h.rank <= 3 ? 'top3' : 'top5';
+    const isGold = h.rank === 1;
+    const typeLabel = h.type === 'produto' ? 'Produto' : 'Segmento';
+    let detail = nf.format(h.vol) + ' mil m³ | Share: ' + pct(h.share);
+    if (h.rank === 1) {
+      detail += ' | Líder entre ' + h.total + ' distribuidoras';
+    } else {
+      detail += ' | Líder: ' + h.leaderName + ' (-' + nf.format(h.gap) + '%)';
+    }
+    return '<div class="hl-card' + (isGold ? ' gold' : '') + '">' +
+      '<div class="hl-title">' + typeLabel + ': ' + h.name + '</div>' +
+      '<div class="hl-rank ' + rankClass + '">' + h.rank + 'º</div>' +
+      '<div class="hl-detail">' + detail + '</div></div>';
+  }).join('');
 }
 
 function renderKPIs(total, royal, rank, share, n) {
