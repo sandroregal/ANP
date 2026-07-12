@@ -19,7 +19,7 @@ Dashboard PWA de inteligência comercial para a Royal FIC Distribuidora de Deriv
 RAW = {
   empresas: [...],    // 185 distribuidoras
   produtos: [...],    // Diesel S10, Diesel S500, Etanol Hidratado, Gasolina C, Oleo Combustivel, Outros Diesel
-  segmentos: [...],   // Consumidor Final, Posto Bandeirado, Posto Branco, TRR
+  segmentos: [...],   // Consumidor Final, Posto Bandeirado, Posto Bandeira Branca, TRR
   ufs: [...],         // 27 UFs do Brasil
   dados: [            // ~96k rows agregados
     [ano, mes, empresa_idx, produto_idx, segmento_idx, uf_idx, volume_mil_m3]
@@ -42,7 +42,7 @@ RAW = {
 5. **Inteligência de Mercado** (seção análise):
    - Panorama do Setor (dinâmica de produtos/segmentos — crescimento, não shares)
    - Royal FIC vs Mercado (tabelas separadas por produto e segmento, com Dif. colorida)
-   - Retrovisor Competitivo (concorrentes atrás no ranking, onde avançam)
+   - Retrovisor Competitivo (concorrentes atrás no ranking, onde avançam, veredito ➜ com ação)
 6. **Gráficos Canvas**: Ranking, Evolução mensal, Royal vs Mercado, Mix de Produtos, Segmentos, Market Share
 7. **Tooltips interativos** nos gráficos
 8. **Linha tracejada** para Royal FIC nos gráficos de evolução
@@ -58,6 +58,9 @@ RAW = {
 - Cores na análise: usar com moderação — `var(--muted)` para labels, cor só em dados-chave
 - Divisórias sutis (`.analysis-divider`) entre seções da análise
 - Tabelas comparativas (`.cmp-table`) com classes `.cmp-pos`, `.cmp-neg`, `.cmp-neutral`
+- **Retrovisor Competitivo:** 3 camadas — (1) dados brutos (volume, gap, evolução, avanços), (2) veredito ➜ por concorrente (frase-diagnóstico com ação: "defender", "monitorar", "sem ameaça"), (3) risco geral (ALTO/MODERADO/BAIXO) com produtos/segmentos específicos para proteger. Critério de risco: ALTO se gap < 8% ou concorrente cresce 10pp+ acima da Royal; inclui onde Royal cede e concorrente avança.
+- **Pacing — cobertura de férias:** `.cobre-tag` (verde, borda lateral) mostra oportunidade de carteira
+- **Deploy:** branch de trabalho → merge para `main` antes de publicar (GitHub Pages serve `main`)
 
 ## Geração de Ícones
 - Via Playwright headless + Canvas API
@@ -78,6 +81,10 @@ RAW = {
 11. Remove redundancies, add growth dynamics
 12. Separate tables, dividers, reduce color noise
 13. Nationwide data (27 UFs) + UF filter
+14. Veredito acionável no Retrovisor Competitivo + correção "Posto Bandeira Branca"
+15. WhatsApp share conversacional no Pacing (saudações/estímulos randomizados)
+16. Férias individuais no Pacing (dias úteis recalculados por vendedor)
+17. Insight de cobertura de férias (oportunidade de carteira do colega)
 
 ## Ecossistema de Apps SP (repo Vendedores)
 Três apps PWA no mesmo repo `sandroregal/Vendedores`, mesmo origin (compartilham IndexedDB):
@@ -106,6 +113,19 @@ Três apps PWA no mesmo repo `sandroregal/Vendedores`, mesmo origin (compartilha
 - 4 abas: Volume (ordena por vol realizado), Clientes (por nº cli), Produtos, Análise (consolidada do time)
 - Não depende do EMB/IndexedDB — lê vendedor direto do CSV c[9]
 - PWA: `manifest-pacing.webmanifest`, SW compartilhado (`sw.js`)
+- **Férias individuais:** campo `fer` (dias efetivos) por vendedor recalcula projeção, ritmo necessário e dias restantes individualmente. Tag 🏖 no card mostra dias de férias e dias úteis efetivos.
+- **Cobertura de férias:** campo `cobre` liga quem cobre a quem. Card mostra tag verde com insight: clientes e volume da carteira disponível do colega de férias. Coberturas atuais: Kelly→Valter, Jéssica→Luís, Rogério→S.Cardoso, Driele→Silvana, Tatyana→Neusa.
+- **WhatsApp share (📤):** botão em cada card de vendedor abre WhatsApp com mensagem conversacional:
+  - Saudação randomizada (10 variações)
+  - Transição randomizada (8 variações)
+  - Realizado vs meta (4 variações)
+  - Gap (3 variações)
+  - Projeção contextual por faixa (4 variações × 4 faixas)
+  - Ritmo (3 variações)
+  - Insight de cobertura quando aplicável (4 variações)
+  - Estímulo final por faixa de projeção (10 variações × 4 faixas: >120%, 95-120%, 75-95%, <75%)
+  - Tudo via `Math.random()` — cada clique gera combinação única (~115k possíveis)
+  - Férias descontadas na mensagem quando vendedor tem `fer > 0`
 
 ### 3. Mes-Corrente (`sandroregal/Mes-Corrente/`)
 - Repo separado, mesmo YVIEWCOPA como fonte
