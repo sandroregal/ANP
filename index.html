@@ -1115,59 +1115,62 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
   }
   const mktGrowth = calcMarketGrowth();
 
-  // Market concentration (top 3 share)
-  const top3Vol = ranking.slice(0, 3).reduce((s,r) => s + r.vol, 0);
-  const top3Share = totalMkt > 0 ? top3Vol / totalMkt : 0;
-
-  // Product breakdown for total market
-  const mktProdMix = {};
-  rows.forEach(r => { const p = PRODUTOS[r[3]]; mktProdMix[p] = (mktProdMix[p]||0) + r[5]; });
-  const mktProdRanked = Object.entries(mktProdMix).sort((a,b) => b[1]-a[1]);
-  const mktTopProd = mktProdRanked[0];
-
-  // Segment breakdown for total market
-  const mktSegMix = {};
-  rows.forEach(r => { const s = SEGMENTOS[r[4]]; mktSegMix[s] = (mktSegMix[s]||0) + r[5]; });
-  const mktSegRanked = Object.entries(mktSegMix).sort((a,b) => b[1]-a[1]);
-  const mktTopSeg = mktSegRanked[0];
-
-  // Product growth for market
+  // Product and segment growth for market
   const mktProdGrowth = {};
+  const mktSegGrowth = {};
   if (pks.length >= 2) {
-    const byPkProd = {};
+    const byPkProd = {}, byPkSeg = {};
     rows.forEach(r => {
-      const pk = r[0]*100+r[1], p = PRODUTOS[r[3]], k = pk+'|'+p;
-      byPkProd[k] = (byPkProd[k]||0) + r[5];
+      const pk = r[0]*100+r[1];
+      const p = PRODUTOS[r[3]], kp = pk+'|'+p;
+      byPkProd[kp] = (byPkProd[kp]||0) + r[5];
+      const s = SEGMENTOS[r[4]], ks = pk+'|'+s;
+      byPkSeg[ks] = (byPkSeg[ks]||0) + r[5];
     });
     const fp = pks[0], lp = pks[pks.length-1];
-    mktProdRanked.forEach(([p]) => {
+    const prods = [...new Set(rows.map(r => PRODUTOS[r[3]]))];
+    prods.forEach(p => {
       const fv = byPkProd[fp+'|'+p]||0, lv = byPkProd[lp+'|'+p]||0;
       mktProdGrowth[p] = fv > 0 ? ((lv-fv)/fv*100) : (lv > 0 ? 100 : 0);
+    });
+    const segs = [...new Set(rows.map(r => SEGMENTOS[r[4]]))];
+    segs.forEach(s => {
+      const fv = byPkSeg[fp+'|'+s]||0, lv = byPkSeg[lp+'|'+s]||0;
+      mktSegGrowth[s] = fv > 0 ? ((lv-fv)/fv*100) : (lv > 0 ? 100 : 0);
     });
   }
 
   // Build analysis
   let html = '<b style="color:var(--dourado)">PANORAMA DO SETOR</b>';
   html += '<br>Mercado total: '+nf.format(totalMkt)+' mil m\u00B3 | Evolucao no periodo: '+(mktGrowth>=0?'+':'')+nf.format(mktGrowth)+'%';
-  html += '<br>Concentracao: Top 3 det\u00E9m '+pct(top3Share)+' do mercado ('+ranking.slice(0,3).map(r => shortName(r.name,15)).join(', ')+')';
 
-  // Products trend
-  if (mktTopProd) {
-    html += '<br><br><b>Produtos</b>: ';
-    html += mktProdRanked.slice(0, 4).map(([p, v]) => {
-      const share = totalMkt > 0 ? v / totalMkt * 100 : 0;
-      const g = mktProdGrowth[p];
-      return p + ' (' + nf.format(share) + '%' + (g !== undefined ? ', ' + (g>=0?'+':'') + nf.format(g) + '%' : '') + ')';
-    }).join(' | ');
-  }
+  // Market momentum \u2014 products gaining/losing traction
+  if (pks.length >= 2) {
+    const prodEntries = Object.entries(mktProdGrowth).filter(([,g]) => Math.abs(g) > 2);
+    const prodUp = prodEntries.filter(([,g]) => g > 2).sort((a,b) => b[1]-a[1]);
+    const prodDown = prodEntries.filter(([,g]) => g < -2).sort((a,b) => a[1]-b[1]);
+    if (prodUp.length > 0 || prodDown.length > 0) {
+      html += '<br><br><b>Dinamica de Produtos</b>';
+      if (prodUp.length > 0) {
+        html += '<br><span style="color:#0E8A5C">\u25B2 Em alta:</span> '+prodUp.map(([p,g]) => p+' ('+(g>=0?'+':'')+nf.format(g)+'%)').join(', ');
+      }
+      if (prodDown.length > 0) {
+        html += '<br><span style="color:#C25B3A">\u25BC Em queda:</span> '+prodDown.map(([p,g]) => p+' ('+nf.format(g)+'%)').join(', ');
+      }
+    }
 
-  // Segments trend
-  if (mktTopSeg) {
-    html += '<br><b>Segmentos</b>: ';
-    html += mktSegRanked.slice(0, 4).map(([s, v]) => {
-      const share = totalMkt > 0 ? v / totalMkt * 100 : 0;
-      return s + ' (' + nf.format(share) + '%)';
-    }).join(' | ');
+    const segEntries = Object.entries(mktSegGrowth).filter(([,g]) => Math.abs(g) > 2);
+    const segUp = segEntries.filter(([,g]) => g > 2).sort((a,b) => b[1]-a[1]);
+    const segDown = segEntries.filter(([,g]) => g < -2).sort((a,b) => a[1]-b[1]);
+    if (segUp.length > 0 || segDown.length > 0) {
+      html += '<br><br><b>Dinamica de Segmentos</b>';
+      if (segUp.length > 0) {
+        html += '<br><span style="color:#0E8A5C">\u25B2 Em alta:</span> '+segUp.map(([s,g]) => s+' ('+(g>=0?'+':'')+nf.format(g)+'%)').join(', ');
+      }
+      if (segDown.length > 0) {
+        html += '<br><span style="color:#C25B3A">\u25BC Em queda:</span> '+segDown.map(([s,g]) => s+' ('+nf.format(g)+'%)').join(', ');
+      }
+    }
   }
 
   // Royal FIC vs Market
