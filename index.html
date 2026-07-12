@@ -115,6 +115,15 @@ header {
 }
 .analysis-box h3 { font-size: 12px; font-weight: 800; color: var(--dourado); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
 .analysis-box p { font-size: 13px; line-height: 1.7; color: var(--ink); }
+.cmp-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+.cmp-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid var(--dourado); color: var(--dourado); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
+.cmp-table th.r { text-align: right; }
+.cmp-table td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.cmp-table td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.cmp-table tr:last-child td { border-bottom: none; }
+.cmp-table .cmp-pos { color: #0E8A5C; font-weight: 700; }
+.cmp-table .cmp-neg { color: #C25B3A; font-weight: 700; }
+.cmp-table .cmp-neutral { color: var(--dourado); font-weight: 600; }
 
 .highlights-box {
   margin: 0 20px; padding: 0; display: none;
@@ -1173,41 +1182,45 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
     }
   }
 
-  // Royal FIC vs Market
+  // Royal FIC vs Market \u2014 summary line
   html += '<br><br><b style="color:var(--dourado)">ROYAL FIC vs MERCADO</b>';
   const royalAboveMkt = royalGrowth > mktGrowth;
-  html += '<br>Crescimento Royal FIC: '+(royalGrowth>=0?'+':'')+nf.format(royalGrowth)+'% vs Mercado '+(mktGrowth>=0?'+':'')+nf.format(mktGrowth)+'% ';
+  html += '<br>Crescimento geral: '+(royalGrowth>=0?'+':'')+nf.format(royalGrowth)+'% vs Mercado '+(mktGrowth>=0?'+':'')+nf.format(mktGrowth)+'% ';
   if (royalAboveMkt) {
-    html += '<span style="color:#0E8A5C"><b>\u2014 Acima do mercado, ganhando share</b></span>';
+    html += '<span style="color:#0E8A5C"><b>\u2014 Ganhando share</b></span>';
   } else if (Math.abs(royalGrowth - mktGrowth) < 2) {
-    html += '<span style="color:var(--dourado)"><b>\u2014 Acompanhando o mercado</b></span>';
+    html += '<span style="color:var(--dourado)"><b>\u2014 Acompanhando</b></span>';
   } else {
-    html += '<span style="color:#C25B3A"><b>\u2014 Abaixo do mercado, perdendo share</b></span>';
+    html += '<span style="color:#C25B3A"><b>\u2014 Perdendo share</b></span>';
   }
 
-  // Royal FIC product performance vs market
+  // Royal FIC vs Market \u2014 comparison table by product
   if (royalMix.topProd && pks.length >= 2) {
     const royalProdG = growthByProd(ROYAL_IDX);
-    const prodComps = [];
+    const royalSegG = growthBySeg(ROYAL_IDX);
+    const tableRows = [];
     Object.entries(royalProdG).forEach(([p, data]) => {
       const mktG = mktProdGrowth[p] || 0;
       const diff = data.growth - mktG;
-      if (Math.abs(diff) > 5) {
-        prodComps.push({ prod: p, royalG: data.growth, mktG, diff, vol: data.last });
-      }
+      tableRows.push({ name: p, royalG: data.growth, mktG, diff });
     });
-    if (prodComps.length > 0) {
-      prodComps.sort((a,b) => b.diff - a.diff);
-      const above = prodComps.filter(p => p.diff > 0);
-      const below = prodComps.filter(p => p.diff < 0);
-      if (above.length > 0) {
-        html += '<br><span style="color:#0E8A5C">Acima do mercado em:</span> ';
-        html += above.map(p => p.prod + ' ('+(p.royalG>=0?'+':'')+nf.format(p.royalG)+'% vs mkt '+(p.mktG>=0?'+':'')+nf.format(p.mktG)+'%)').join('; ');
-      }
-      if (below.length > 0) {
-        html += '<br><span style="color:#C25B3A">Abaixo do mercado em:</span> ';
-        html += below.map(p => p.prod + ' ('+(p.royalG>=0?'+':'')+nf.format(p.royalG)+'% vs mkt '+(p.mktG>=0?'+':'')+nf.format(p.mktG)+'%)').join('; ');
-      }
+    Object.entries(royalSegG).forEach(([s, data]) => {
+      const mktG = mktSegGrowth[s] || 0;
+      const diff = data.growth - mktG;
+      tableRows.push({ name: s, royalG: data.growth, mktG, diff });
+    });
+    tableRows.sort((a,b) => b.diff - a.diff);
+
+    if (tableRows.length > 0) {
+      const fmtG = v => (v>=0?'+':'')+nf.format(v)+'%';
+      const cls = d => d > 2 ? 'cmp-pos' : (d < -2 ? 'cmp-neg' : 'cmp-neutral');
+      html += '<table class="cmp-table">';
+      html += '<tr><th>Produto / Segmento</th><th class="r">Royal FIC</th><th class="r">Mercado</th><th class="r">Dif.</th></tr>';
+      tableRows.forEach(r => {
+        const c = cls(r.diff);
+        html += '<tr><td>'+r.name+'</td><td class="r">'+fmtG(r.royalG)+'</td><td class="r">'+fmtG(r.mktG)+'</td><td class="r '+c+'">'+fmtG(r.diff)+'</td></tr>';
+      });
+      html += '</table>';
     }
   }
 
