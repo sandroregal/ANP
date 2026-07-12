@@ -115,15 +115,17 @@ header {
 }
 .analysis-box h3 { font-size: 12px; font-weight: 800; color: var(--dourado); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
 .analysis-box p { font-size: 13px; line-height: 1.7; color: var(--ink); }
-.cmp-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
-.cmp-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid var(--dourado); color: var(--dourado); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
+.cmp-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; }
+.cmp-table th { text-align: left; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.12); color: var(--muted); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
 .cmp-table th.r { text-align: right; }
-.cmp-table td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.cmp-table td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--ink); }
 .cmp-table td.r { text-align: right; font-variant-numeric: tabular-nums; }
 .cmp-table tr:last-child td { border-bottom: none; }
-.cmp-table .cmp-pos { color: #0E8A5C; font-weight: 700; }
-.cmp-table .cmp-neg { color: #C25B3A; font-weight: 700; }
-.cmp-table .cmp-neutral { color: var(--dourado); font-weight: 600; }
+.cmp-table .cmp-pos { color: #0E8A5C; font-weight: 600; }
+.cmp-table .cmp-neg { color: #C25B3A; font-weight: 600; }
+.cmp-table .cmp-neutral { color: var(--muted); }
+.analysis-divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 14px 0; }
+.analysis-label { font-size: 11px; font-weight: 700; color: var(--dourado); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
 
 .highlights-box {
   margin: 0 20px; padding: 0; display: none;
@@ -1150,76 +1152,75 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
   }
 
   // Build analysis
-  let html = '<b style="color:var(--dourado)">PANORAMA DO SETOR</b>';
-  html += '<br>Mercado total: '+nf.format(totalMkt)+' mil m\u00B3 | Evolucao no periodo: '+(mktGrowth>=0?'+':'')+nf.format(mktGrowth)+'%';
+  const fmtG = v => (v>=0?'+':'')+nf.format(v)+'%';
+  let html = '<div class="analysis-label">Panorama do Setor</div>';
+  html += 'Mercado total: '+nf.format(totalMkt)+' mil m\u00B3 | Evolucao: '+(mktGrowth>=0?'+':'')+nf.format(mktGrowth)+'%';
 
-  // Market momentum \u2014 products gaining/losing traction
   if (pks.length >= 2) {
     const prodEntries = Object.entries(mktProdGrowth).filter(([,g]) => Math.abs(g) > 2);
     const prodUp = prodEntries.filter(([,g]) => g > 2).sort((a,b) => b[1]-a[1]);
     const prodDown = prodEntries.filter(([,g]) => g < -2).sort((a,b) => a[1]-b[1]);
-    if (prodUp.length > 0 || prodDown.length > 0) {
-      html += '<br><br><b>Dinamica de Produtos</b>';
-      if (prodUp.length > 0) {
-        html += '<br><span style="color:#0E8A5C">\u25B2 Em alta:</span> '+prodUp.map(([p,g]) => p+' ('+(g>=0?'+':'')+nf.format(g)+'%)').join(', ');
-      }
-      if (prodDown.length > 0) {
-        html += '<br><span style="color:#C25B3A">\u25BC Em queda:</span> '+prodDown.map(([p,g]) => p+' ('+nf.format(g)+'%)').join(', ');
-      }
+    if (prodUp.length > 0) {
+      html += '<br><span style="color:var(--muted)">Produtos em alta:</span> '+prodUp.map(([p,g]) => p+' ('+fmtG(g)+')').join(', ');
+    }
+    if (prodDown.length > 0) {
+      html += '<br><span style="color:var(--muted)">Produtos em queda:</span> '+prodDown.map(([p,g]) => p+' ('+fmtG(g)+')').join(', ');
     }
 
     const segEntries = Object.entries(mktSegGrowth).filter(([,g]) => Math.abs(g) > 2);
     const segUp = segEntries.filter(([,g]) => g > 2).sort((a,b) => b[1]-a[1]);
     const segDown = segEntries.filter(([,g]) => g < -2).sort((a,b) => a[1]-b[1]);
-    if (segUp.length > 0 || segDown.length > 0) {
-      html += '<br><br><b>Dinamica de Segmentos</b>';
-      if (segUp.length > 0) {
-        html += '<br><span style="color:#0E8A5C">\u25B2 Em alta:</span> '+segUp.map(([s,g]) => s+' ('+(g>=0?'+':'')+nf.format(g)+'%)').join(', ');
-      }
-      if (segDown.length > 0) {
-        html += '<br><span style="color:#C25B3A">\u25BC Em queda:</span> '+segDown.map(([s,g]) => s+' ('+nf.format(g)+'%)').join(', ');
-      }
+    if (segUp.length > 0) {
+      html += '<br><span style="color:var(--muted)">Segmentos em alta:</span> '+segUp.map(([s,g]) => s+' ('+fmtG(g)+')').join(', ');
+    }
+    if (segDown.length > 0) {
+      html += '<br><span style="color:var(--muted)">Segmentos em queda:</span> '+segDown.map(([s,g]) => s+' ('+fmtG(g)+')').join(', ');
     }
   }
 
-  // Royal FIC vs Market \u2014 summary line
-  html += '<br><br><b style="color:var(--dourado)">ROYAL FIC vs MERCADO</b>';
+  // Royal FIC vs Market
+  html += '<hr class="analysis-divider">';
+  html += '<div class="analysis-label">Royal FIC vs Mercado</div>';
   const royalAboveMkt = royalGrowth > mktGrowth;
-  html += '<br>Crescimento geral: '+(royalGrowth>=0?'+':'')+nf.format(royalGrowth)+'% vs Mercado '+(mktGrowth>=0?'+':'')+nf.format(mktGrowth)+'% ';
+  html += 'Crescimento geral: '+fmtG(royalGrowth)+' vs Mercado '+fmtG(mktGrowth)+' ';
   if (royalAboveMkt) {
-    html += '<span style="color:#0E8A5C"><b>\u2014 Ganhando share</b></span>';
+    html += '\u2014 <b>Ganhando share</b>';
   } else if (Math.abs(royalGrowth - mktGrowth) < 2) {
-    html += '<span style="color:var(--dourado)"><b>\u2014 Acompanhando</b></span>';
+    html += '\u2014 <b>Acompanhando</b>';
   } else {
-    html += '<span style="color:#C25B3A"><b>\u2014 Perdendo share</b></span>';
+    html += '\u2014 <b>Perdendo share</b>';
   }
 
-  // Royal FIC vs Market \u2014 comparison table by product
+  // Comparison tables \u2014 products and segments separated
   if (royalMix.topProd && pks.length >= 2) {
     const royalProdG = growthByProd(ROYAL_IDX);
     const royalSegG = growthBySeg(ROYAL_IDX);
-    const tableRows = [];
+    const cls = d => d > 2 ? 'cmp-pos' : (d < -2 ? 'cmp-neg' : 'cmp-neutral');
+    const mkRow = r => '<tr><td>'+r.name+'</td><td class="r">'+fmtG(r.royalG)+'</td><td class="r">'+fmtG(r.mktG)+'</td><td class="r '+cls(r.diff)+'">'+fmtG(r.diff)+'</td></tr>';
+
+    const prodRows = [];
     Object.entries(royalProdG).forEach(([p, data]) => {
       const mktG = mktProdGrowth[p] || 0;
-      const diff = data.growth - mktG;
-      tableRows.push({ name: p, royalG: data.growth, mktG, diff });
+      prodRows.push({ name: p, royalG: data.growth, mktG, diff: data.growth - mktG });
     });
+    prodRows.sort((a,b) => b.diff - a.diff);
+    if (prodRows.length > 0) {
+      html += '<br><span style="color:var(--muted);font-size:11px">Por Produto</span>';
+      html += '<table class="cmp-table"><tr><th>Produto</th><th class="r">Royal</th><th class="r">Mercado</th><th class="r">Dif.</th></tr>';
+      prodRows.forEach(r => { html += mkRow(r); });
+      html += '</table>';
+    }
+
+    const segRows = [];
     Object.entries(royalSegG).forEach(([s, data]) => {
       const mktG = mktSegGrowth[s] || 0;
-      const diff = data.growth - mktG;
-      tableRows.push({ name: s, royalG: data.growth, mktG, diff });
+      segRows.push({ name: s, royalG: data.growth, mktG, diff: data.growth - mktG });
     });
-    tableRows.sort((a,b) => b.diff - a.diff);
-
-    if (tableRows.length > 0) {
-      const fmtG = v => (v>=0?'+':'')+nf.format(v)+'%';
-      const cls = d => d > 2 ? 'cmp-pos' : (d < -2 ? 'cmp-neg' : 'cmp-neutral');
-      html += '<table class="cmp-table">';
-      html += '<tr><th>Produto / Segmento</th><th class="r">Royal FIC</th><th class="r">Mercado</th><th class="r">Dif.</th></tr>';
-      tableRows.forEach(r => {
-        const c = cls(r.diff);
-        html += '<tr><td>'+r.name+'</td><td class="r">'+fmtG(r.royalG)+'</td><td class="r">'+fmtG(r.mktG)+'</td><td class="r '+c+'">'+fmtG(r.diff)+'</td></tr>';
-      });
+    segRows.sort((a,b) => b.diff - a.diff);
+    if (segRows.length > 0) {
+      html += '<br><span style="color:var(--muted);font-size:11px">Por Segmento</span>';
+      html += '<table class="cmp-table"><tr><th>Segmento</th><th class="r">Royal</th><th class="r">Mercado</th><th class="r">Dif.</th></tr>';
+      segRows.forEach(r => { html += mkRow(r); });
       html += '</table>';
     }
   }
@@ -1274,8 +1275,9 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
   }
 
   if (competitors.length > 0) {
-    html += '<br><br><b style="color:var(--dourado)">RETROVISOR COMPETITIVO</b>';
-    html += '<br><span style="color:var(--muted);font-size:11px">Concorrentes logo atras no ranking \u2014 evolucao, produtos e segmentos onde avancam</span>';
+    html += '<hr class="analysis-divider">';
+    html += '<div class="analysis-label">Retrovisor Competitivo</div>';
+    html += '<span style="color:var(--muted);font-size:11px">Concorrentes logo atras no ranking \u2014 evolucao e onde avancam</span>';
 
     const royalProdGrowth = growthByProd(ROYAL_IDX);
     const royalSegGrowth = growthBySeg(ROYAL_IDX);
@@ -1294,18 +1296,16 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
     compData.forEach(comp => {
       const gap = royalVol > 0 ? ((royalVol - comp.vol) / royalVol * 100) : 0;
       const sn = shortName(comp.name, 30);
-      html += '<br><br><b style="color:var(--azul2)">'+sn+' (#'+comp.rank+')</b>';
-      html += '<br>Volume: '+nf.format(comp.vol)+' mil m\u00B3 | Share: '+pct(comp.share)+' | Distancia: '+nf.format(gap)+'% atras da Royal FIC';
+      html += '<br><br><b>'+sn+' (#'+comp.rank+')</b>';
+      html += '<br>Volume: '+nf.format(comp.vol)+' mil m\u00B3 | Share: '+pct(comp.share)+' | Gap: '+nf.format(gap)+'% atras';
 
-      // Evolution trend
-      const trendIcon = comp.growth > royalGrowth + 5 ? '\u26A0\uFE0F' : (comp.growth > royalGrowth ? '\u2197\uFE0F' : '\u2705');
-      html += '<br>Evolucao: '+(comp.growth>=0?'+':'')+nf.format(comp.growth)+'% '+trendIcon;
+      html += '<br>Evolucao: '+fmtG(comp.growth);
       if (comp.growth > royalGrowth + 5) {
-        html += ' <span style="color:#C25B3A"><b>Fechando distancia rapidamente!</b></span>';
+        html += ' \u2014 <span class="cmp-neg">fechando distancia</span>';
       } else if (comp.growth > royalGrowth) {
-        html += ' <span style="color:var(--dourado)">Ganhando terreno</span>';
+        html += ' \u2014 <span style="color:var(--muted)">ganhando terreno</span>';
       } else {
-        html += ' <span style="color:#0E8A5C">Royal FIC abrindo vantagem</span>';
+        html += ' \u2014 <span class="cmp-pos">Royal abrindo vantagem</span>';
       }
 
       // Products where competitor is advancing vs Royal FIC
@@ -1318,42 +1318,25 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
       });
       if (prodAdvancing.length > 0) {
         prodAdvancing.sort((a,b) => (b.compGrowth - b.royalGrowth) - (a.compGrowth - a.royalGrowth));
-        html += '<br><span style="color:#C25B3A">Produtos onde avanca vs Royal FIC:</span>';
-        prodAdvancing.forEach(pa => {
-          html += '<br>&nbsp;&nbsp;\u25B8 '+pa.prod+': '+(pa.compGrowth>=0?'+':'')+nf.format(pa.compGrowth)+'% vs Royal '+(pa.royalGrowth>=0?'+':'')+nf.format(pa.royalGrowth)+'% (vol: '+nf.format(pa.vol)+' mil m\u00B3)';
-        });
+        html += '<br><span style="color:var(--muted)">Avanca em produtos:</span> ';
+        html += prodAdvancing.map(pa => pa.prod+' ('+fmtG(pa.compGrowth)+' vs Royal '+fmtG(pa.royalGrowth)+')').join('; ');
       }
 
-      // Segments where competitor is advancing vs Royal FIC
       const segAdvancing = [];
       Object.entries(comp.segG).forEach(([seg, data]) => {
         const royalSeg = royalSegGrowth[seg];
         if (data.growth > 10 && (!royalSeg || data.growth > royalSeg.growth + 5)) {
-          segAdvancing.push({ seg, compGrowth: data.growth, royalGrowth: royalSeg ? royalSeg.growth : 0, vol: data.last });
+          segAdvancing.push({ seg, compGrowth: data.growth, royalGrowth: royalSeg ? royalSeg.growth : 0 });
         }
       });
       if (segAdvancing.length > 0) {
         segAdvancing.sort((a,b) => (b.compGrowth - b.royalGrowth) - (a.compGrowth - a.royalGrowth));
-        html += '<br><span style="color:#C25B3A">Segmentos onde avanca vs Royal FIC:</span>';
-        segAdvancing.forEach(sa => {
-          html += '<br>&nbsp;&nbsp;\u25B8 '+sa.seg+': '+(sa.compGrowth>=0?'+':'')+nf.format(sa.compGrowth)+'% vs Royal '+(sa.royalGrowth>=0?'+':'')+nf.format(sa.royalGrowth)+'% (vol: '+nf.format(sa.vol)+' mil m\u00B3)';
-        });
-      }
-
-      // Products/segments where Royal FIC is stronger
-      const royalStronger = [];
-      Object.entries(royalProdGrowth).forEach(([prod, data]) => {
-        const compProd = comp.prodG[prod];
-        if (data.growth > 10 && (!compProd || data.growth > compProd.growth + 10)) {
-          royalStronger.push(prod+' ('+(data.growth>=0?'+':'')+nf.format(data.growth)+'%)');
-        }
-      });
-      if (royalStronger.length > 0) {
-        html += '<br><span style="color:#0E8A5C">Produtos onde Royal FIC domina:</span> '+royalStronger.join(', ');
+        html += '<br><span style="color:var(--muted)">Avanca em segmentos:</span> ';
+        html += segAdvancing.map(sa => sa.seg+' ('+fmtG(sa.compGrowth)+' vs Royal '+fmtG(sa.royalGrowth)+')').join('; ');
       }
 
       if (prodAdvancing.length === 0 && segAdvancing.length === 0) {
-        html += '<br><span style="color:#0E8A5C">Sem avancos significativos deste concorrente sobre a Royal FIC</span>';
+        html += '<br><span style="color:var(--muted)">Sem avancos significativos sobre a Royal FIC</span>';
       }
     });
 
@@ -1369,12 +1352,12 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
       threatLevel = 'BAIXO'; threatColor = '#0E8A5C';
     }
 
-    html += '<br><br><b>Risco de ultrapassagem: <span style="color:'+threatColor+'">'+threatLevel+'</span></b>';
-    if (threatLevel === 'ALTO') html += ' \u2014 Perseguidores avancam rapidamente, atencao redobrada nos produtos e segmentos indicados acima';
-    else if (threatLevel === 'BAIXO') html += ' \u2014 Royal FIC mantem vantagem confortavel sobre os perseguidores';
-    else html += ' \u2014 Monitorar evolucao dos perseguidores nos proximos periodos';
+    html += '<br><br><span style="color:var(--muted)">Risco de ultrapassagem:</span> <b style="color:'+threatColor+'">'+threatLevel+'</b>';
+    if (threatLevel === 'ALTO') html += ' \u2014 atencao nos produtos e segmentos indicados';
+    else if (threatLevel === 'BAIXO') html += ' \u2014 vantagem confortavel';
+    else html += ' \u2014 monitorar nos proximos periodos';
   } else {
-    html += '<br>Dados insuficientes para analise competitiva.';
+    html += '<br><span style="color:var(--muted)">Dados insuficientes para analise competitiva.</span>';
   }
 
   document.getElementById('analysisTxt').innerHTML = html;
