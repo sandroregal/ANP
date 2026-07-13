@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # ROTINA DE ATUALIZAÇÃO - App ANP Royal FIC
 # Baixa dados da ANP, filtra, converte e atualiza o app
 # Executar entre os dias 20 e último dia de cada mês
@@ -244,7 +244,7 @@ function Bump-SW {
         $newVer = "v$mesAno"
         $sw = $sw -replace "const CACHE_VERSION = '[^']+'", "const CACHE_VERSION = '$newVer'"
         Set-Content $swPath $sw -Encoding UTF8 -NoNewline
-        Write-Log "SW: $oldVer → $newVer"
+        Write-Log "SW: $oldVer -> $newVer"
     }
 }
 

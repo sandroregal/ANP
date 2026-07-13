@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 title Atualizando App ANP - Royal FIC
 echo ============================================
 echo   ATUALIZACAO APP ANP - ROYAL FIC
