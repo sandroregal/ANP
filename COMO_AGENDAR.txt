@@ -1,0 +1,22 @@
+COMO AGENDAR A ATUALIZAÇÃO AUTOMÁTICA DA ANP
+=============================================
+
+1. Abra o Agendador de Tarefas do Windows:
+   - Pressione Win + R, digite "taskschd.msc" e Enter
+
+2. No painel direito, clique em "Criar Tarefa Básica..."
+
+3. Configure:
+   - Nome: Atualizar ANP - Royal FIC
+   - Disparador: Mensal, dia 20, às 10:00
+   - Ação: Iniciar um programa
+   - Programa: powershell.exe
+   - Argumentos: -ExecutionPolicy Bypass -File "C:\Users\sandro.regal\OneDrive - ROYAL FIC DISTRIBUIDORA DE DERIVADOS DE PETROLEO\_4. BIBLIOTECA_PESQUISA\03_SISTEMAS_DADOS\ANP\atualizar_anp.ps1"
+
+4. Nas propriedades da tarefa, marque:
+   - "Executar estando o usuário conectado ou não" (opcional)
+   - "Executar com privilégios mais altos"
+   - Em Condições: desmarque "Iniciar somente se o computador estiver na alimentação CA"
+   - Em Configurações: marque "Executar tarefa o mais breve possível após uma inicialização agendada ter sido perdida"
+
+ALTERNATIVA: Clique duplo no atalho "Atualizar ANP" na Área de Trabalho para rodar manualmente.
