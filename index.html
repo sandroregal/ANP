@@ -399,6 +399,7 @@ function setupMultiSelect(containerId, items, opts) {
       itemCbs.forEach(cb => cb.checked = false);
     }
     updateDisplay();
+    container.dispatchEvent(new Event('selectionChanged'));
     render();
   });
 
@@ -413,6 +414,7 @@ function setupMultiSelect(containerId, items, opts) {
         if (selected.size === 0) allCb.checked = true;
       }
       updateDisplay();
+      container.dispatchEvent(new Event('selectionChanged'));
       render();
     });
   });
@@ -432,6 +434,14 @@ function setupMultiSelect(containerId, items, opts) {
 
 document.addEventListener('click', () => document.querySelectorAll('.multisel.open').forEach(ms => ms.classList.remove('open')));
 
+function rebuildDistribuidoraFilter() {
+  const selUF = document.getElementById('msUF').getSelected ? document.getElementById('msUF').getSelected() : null;
+  const filtered = RAW.dados.filter(r => !selUF || selUF.has(UFS[r[5]]));
+  const idxSet = new Set(filtered.map(r => r[2]));
+  const names = [...idxSet].map(i => EMPRESAS[i]).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  setupMultiSelect('msDistribuidora', names, {allLabel: 'Todas'});
+}
+
 function initFilters() {
   const selDe = document.getElementById('fPeriodoDe');
   const selAte = document.getElementById('fPeriodoAte');
@@ -445,8 +455,8 @@ function initFilters() {
   setupMultiSelect('msProduto', PRODUTOS);
   setupMultiSelect('msSegmento', SEGMENTOS);
   setupMultiSelect('msUF', UFS, {allLabel: 'Todas'});
-  const topEmpresas = aggByEmpresa(RAW.dados).slice(0, 50).map(r => r.name);
-  setupMultiSelect('msDistribuidora', topEmpresas, {allLabel: 'Todas'});
+  rebuildDistribuidoraFilter();
+  document.getElementById('msUF').addEventListener('selectionChanged', rebuildDistribuidoraFilter);
 
   ['fPeriodoDe','fPeriodoAte','fTopN'].forEach(id =>
     document.getElementById(id).addEventListener('change', render));
