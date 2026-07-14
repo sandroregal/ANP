@@ -1391,14 +1391,31 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
           || Object.entries(sg).some(([s,d]) => d.growth > 10 && (!royalSegGrowth[s] || d.growth > royalSegGrowth[s].growth + 5));
     });
 
+    const anyClosing = compData.some(c => c.growth > royalGrowth);
+    const closestClosing = compData.filter(c => c.growth > royalGrowth)
+      .reduce((min, c) => Math.min(min, royalVol > 0 ? (royalVol - c.vol) / royalVol * 100 : 100), 100);
+
     let threatLevel, threatColor;
-    if (anyFastGrower || closestGap < 8) {
+    if (anyFastGrower && closestGap < 8) {
       threatLevel = 'ALTO'; threatColor = '#C25B3A';
-    } else if (anyAdvancing || closestGap < 15) {
+    } else if ((anyClosing && closestClosing < 8) || (anyFastGrower && anyAdvancing)) {
+      threatLevel = 'ALTO'; threatColor = '#C25B3A';
+    } else if (anyAdvancing || (anyClosing && closestGap < 15)) {
       threatLevel = 'MODERADO'; threatColor = '#C9952E';
     } else {
       threatLevel = 'BAIXO'; threatColor = '#0E8A5C';
     }
+
+    const threatComps = compData.filter(c => {
+      const g = royalVol > 0 ? (royalVol - c.vol) / royalVol * 100 : 100;
+      const closing = c.growth > royalGrowth;
+      const fast = c.growth > royalGrowth + 10;
+      const adv = Object.entries(c.prodG).some(([p,d]) => d.growth > 10 && (!royalProdGrowth[p] || d.growth > royalProdGrowth[p].growth + 5))
+                || Object.entries(c.segG).some(([s,d]) => d.growth > 10 && (!royalSegGrowth[s] || d.growth > royalSegGrowth[s].growth + 5));
+      if (threatLevel === 'ALTO') return (fast && g < 8) || (closing && g < 8) || (fast && adv);
+      if (threatLevel === 'MODERADO') return adv || (closing && g < 15);
+      return false;
+    }).map(c => shortName(c.name, 20));
 
     html += '<br><br><span style="color:var(--muted)">Risco de ultrapassagem:</span> <b style="color:'+threatColor+'">'+threatLevel+'</b>';
     if (threatLevel === 'ALTO') {
@@ -1414,15 +1431,17 @@ function renderAnalysis(ranking, totalMkt, royalVol, royalRank, royalShare, rows
         });
       });
       const dangers = [...new Set(dangerProds.concat(dangerSegs))];
+      const quem = threatComps.length > 0 ? threatComps.join(', ') : '';
       if (dangers.length > 0) {
-        html += ' \u2014 proteger *'+dangers.join(', ')+'* onde Royal cede e concorrente avanca';
+        html += ' \u2014 '+quem+' avanca em '+dangers.join(', ')+' onde Royal cede';
       } else {
-        html += ' \u2014 gap apertado, manter ritmo de crescimento';
+        html += ' \u2014 '+quem+' fechando gap, manter ritmo de crescimento';
       }
-    } else if (threatLevel === 'BAIXO') {
-      html += ' \u2014 vantagem confortavel, manter monitoramento';
+    } else if (threatLevel === 'MODERADO') {
+      const quem = threatComps.length > 0 ? threatComps.join(', ') : '';
+      html += ' \u2014 monitorar '+quem;
     } else {
-      html += ' \u2014 sem risco imediato, mas monitorar avancos pontuais';
+      html += ' \u2014 vantagem confortavel, manter monitoramento';
     }
   } else {
     html += '<br><span style="color:var(--muted)">Dados insuficientes para analise competitiva.</span>';
