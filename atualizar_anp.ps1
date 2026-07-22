@@ -23,6 +23,10 @@ function Write-Log($msg) {
 
 function Test-ANPAtualizada {
     Write-Log "Verificando se a ANP atualizou a base..."
+    $lastRunFile = "$REPO_DIR\ultima_atualizacao.txt"
+    $lastDate = ""
+    if (Test-Path $lastRunFile) { $lastDate = (Get-Content $lastRunFile -Raw).Trim() }
+
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     try {
         $resp = Invoke-WebRequest -Uri $ANP_PAGE_URL -UseBasicParsing -TimeoutSec 30
@@ -30,24 +34,28 @@ function Test-ANPAtualizada {
         if ($html -match 'atualizado\s+em\s+(\d{1,2}/\d{1,2}/\d{4})') {
             $dataStr = $Matches[1]
             Write-Log "Data de atualização na página: $dataStr"
-            $partes = $dataStr -split "/"
-            $dataANP = [datetime]::new([int]$partes[2], [int]$partes[1], [int]$partes[0])
-            $mesAtual = (Get-Date).Month
-            $anoAtual = (Get-Date).Year
-            if ($dataANP.Month -eq $mesAtual -and $dataANP.Year -eq $anoAtual) {
-                Write-Log "Base atualizada neste mês. Prosseguindo..."
-                return $true
-            } else {
-                Write-Log "Base ainda não atualizada neste mês (última: $dataStr). Abortando."
+
+            if ($dataStr -eq $lastDate) {
+                Write-Log "Dados já atualizados com esta versão ($dataStr). Nada a fazer."
                 return $false
             }
-        }
-        # Fallback: verificar pelo link do ZIP
-        if ($html -match 'liquidos\.zip.*?atualiza.*?(\d{1,2}/\d{1,2}/\d{4})') {
-            Write-Log "Data encontrada no link: $($Matches[1])"
+
+            Write-Log "Nova atualização disponível (anterior: $(if($lastDate){"$lastDate"}else{"nenhuma"}))"
+            $script:novaDataANP = $dataStr
             return $true
         }
-        Write-Log "Não encontrou data de atualização na página. Tentando download direto..."
+        if ($html -match 'liquidos\.zip.*?atualiza.*?(\d{1,2}/\d{1,2}/\d{4})') {
+            $dataStr = $Matches[1]
+            if ($dataStr -eq $lastDate) {
+                Write-Log "Dados já atualizados com esta versão ($dataStr). Nada a fazer."
+                return $false
+            }
+            Write-Log "Nova atualização encontrada: $dataStr"
+            $script:novaDataANP = $dataStr
+            return $true
+        }
+        Write-Log "Não encontrou data na página. Tentando download direto..."
+        $script:novaDataANP = ""
         return $true
     } catch {
         Write-Log "ERRO ao acessar página: $($_.Exception.Message)"
@@ -195,43 +203,85 @@ function Converter-ParaRAW($csvPath) {
 
     # Construir JSON
     Write-Log "Construindo JSON RAW..."
-    $sb = [System.Text.StringBuilder]::new(3000000)
-    $null = $sb.Append('const RAW = {"empresas":[')
-    $null = $sb.Append(($empresasList | ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ',')
-    $null = $sb.Append('],"produtos":[')
-    $null = $sb.Append(($produtos | ForEach-Object { '"' + $_ + '"' }) -join ',')
-    $null = $sb.Append('],"segmentos":[')
-    $null = $sb.Append(($segmentos | ForEach-Object { '"' + $_ + '"' }) -join ',')
-    $null = $sb.Append('],"ufs":[')
-    $null = $sb.Append(($ufsList | ForEach-Object { '"' + $_ + '"' }) -join ',')
-    $null = $sb.Append('],"dados":[')
+    $empJson = ($empresasList | ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ','
+    $prodJson = ($produtos | ForEach-Object { '"' + $_ + '"' }) -join ','
+    $segJson = ($segmentos | ForEach-Object { '"' + $_ + '"' }) -join ','
+    $ufJson = ($ufsList | ForEach-Object { '"' + $_ + '"' }) -join ','
+    $headerPart = '"empresas":[' + $empJson + '],"produtos":[' + $prodJson + '],"segmentos":[' + $segJson + '],"ufs":[' + $ufJson + ']'
 
-    $first = $true
+    # Agrupar dados por ano para possivel split
+    $dadosPorAno = @{}
     foreach ($kv in ($agg.GetEnumerator() | Sort-Object Name)) {
-        if (-not $first) { $null = $sb.Append(',') }
-        $first = $false
+        $ano = ($kv.Name -split ",")[0]
         $vol = [math]::Round($kv.Value, 3)
-        $null = $sb.Append("[$($kv.Name),$vol]")
+        $entry = "[$($kv.Name),$vol]"
+        if (-not $dadosPorAno.ContainsKey($ano)) {
+            $dadosPorAno[$ano] = [System.Collections.Generic.List[string]]::new()
+        }
+        $dadosPorAno[$ano].Add($entry)
     }
-    $null = $sb.Append(']};')
 
-    $rawLine = $sb.ToString()
-    Write-Log "RAW gerado: $([math]::Round($rawLine.Length / 1MB, 2)) MB, $($agg.Count) rows de dados"
+    $allEntries = [System.Collections.Generic.List[string]]::new()
+    foreach ($ano in ($dadosPorAno.Keys | Sort-Object)) {
+        $allEntries.AddRange($dadosPorAno[$ano])
+    }
+    $dadosStr = $allEntries -join ','
+    $fullRAW = 'const RAW = {' + $headerPart + ',"dados":[' + $dadosStr + ']};'
 
-    return $rawLine
+    $rawSizeMB = [math]::Round($fullRAW.Length / 1MB, 2)
+    Write-Log "RAW gerado: $rawSizeMB MB, $($agg.Count) rows de dados"
+
+    $SIZE_LIMIT = 30 * 1024 * 1024
+
+    if ($fullRAW.Length -gt $SIZE_LIMIT) {
+        Write-Log "RAW excede 30 MB. Dividindo por ano..."
+        $anos = @($dadosPorAno.Keys | Sort-Object)
+        foreach ($ano in $anos) {
+            $yearEntries = $dadosPorAno[$ano] -join ','
+            $yearContent = "var DATA_$ano = [$yearEntries];"
+            $yearFile = "$REPO_DIR\data_$ano.js"
+            [System.IO.File]::WriteAllText($yearFile, $yearContent, [System.Text.Encoding]::UTF8)
+            $yearSize = [math]::Round((Get-Item $yearFile).Length / 1MB, 2)
+            Write-Log "  data_$ano.js: $yearSize MB ($($dadosPorAno[$ano].Count) rows)"
+        }
+        $concatExpr = "DATA_$($anos[0])"
+        for ($i = 1; $i -lt $anos.Count; $i++) { $concatExpr += ".concat(DATA_$($anos[$i]))" }
+        $slimRAW = 'const RAW = {' + $headerPart + ',"dados":' + $concatExpr + '};'
+        return @{ RAWLine = $slimRAW; Split = $true; Anos = $anos }
+    }
+
+    # Limpar arquivos split antigos se existem
+    Get-ChildItem "$REPO_DIR\data_*.js" -ErrorAction SilentlyContinue | ForEach-Object {
+        Remove-Item $_.FullName -Force
+        Write-Log "  Removido split antigo: $($_.Name)"
+    }
+
+    return @{ RAWLine = $fullRAW; Split = $false; Anos = @() }
 }
 
-function Atualizar-IndexHTML($rawLine) {
+function Atualizar-IndexHTML($result) {
     Write-Log "Atualizando index.html..."
     $indexPath = "$REPO_DIR\index.html"
 
     $content = [System.IO.File]::ReadAllText($indexPath, [System.Text.Encoding]::UTF8)
-    $pattern = 'const RAW = \{.*?\};'
-    $content = [regex]::Replace($content, $pattern, $rawLine)
+
+    # Remover tags de data files anteriores
+    $content = [regex]::Replace($content, '<script src="data_\d{4}\.js"></script>\r?\n', '')
+
+    # Substituir linha RAW
+    $content = [regex]::Replace($content, 'const RAW = \{.*?\};', $result.RAWLine)
+
+    # Se split, inserir tags de data files antes do <script> principal
+    if ($result.Split) {
+        $tags = ($result.Anos | ForEach-Object { "<script src=`"data_$_.js`"></script>" }) -join "`n"
+        $content = [regex]::Replace($content, '(?=<script>\s+const RAW)', "$tags`n")
+    }
+
     [System.IO.File]::WriteAllText($indexPath, $content, [System.Text.Encoding]::UTF8)
 
     $size = [math]::Round((Get-Item $indexPath).Length / 1MB, 2)
-    Write-Log "index.html atualizado: $size MB"
+    $mode = if ($result.Split) { " (split: $($result.Anos -join ', '))" } else { "" }
+    Write-Log "index.html atualizado: $size MB$mode"
 }
 
 function Bump-SW {
@@ -248,10 +298,17 @@ function Bump-SW {
     }
 }
 
-function Git-CommitPush {
+function Git-CommitPush($splitInfo) {
     Write-Log "Fazendo commit e push..."
     Push-Location $REPO_DIR
     git add index.html sw.js
+    if ($splitInfo.Split) {
+        foreach ($ano in $splitInfo.Anos) { git add "data_$ano.js" }
+    }
+    $dataTracked = git ls-files "data_*.js"
+    if ($dataTracked -and -not $splitInfo.Split) {
+        foreach ($f in $dataTracked) { git rm $f }
+    }
     $mesRef = (Get-Date).AddMonths(-1).ToString("MMM/yyyy")
     git commit -m "Atualiza dados ANP - ref. $mesRef"
     git push origin main
@@ -263,24 +320,23 @@ function Git-CommitPush {
 
 Write-Log "=== INÍCIO DA ATUALIZAÇÃO ANP ==="
 
-$dia = (Get-Date).Day
-$ultimoDia = [datetime]::DaysInMonth((Get-Date).Year, (Get-Date).Month)
-
-if ($dia -lt 20 -or $dia -gt $ultimoDia) {
-    Write-Log "Fora da janela de atualização (dia $dia, janela: 20 a $ultimoDia). Abortando."
-    exit 0
-}
+$script:novaDataANP = ""
 
 if (-not (Test-ANPAtualizada)) {
-    Write-Log "ANP não atualizou ainda. Tentando novamente nos próximos dias."
+    Write-Log "Sem novos dados. Encerrando."
     exit 0
 }
 
 $csvOriginal = Download-ANP
 Filtrar-CSV $csvOriginal
-$rawLine = Converter-ParaRAW $CSV_FILTRADO
-Atualizar-IndexHTML $rawLine
+$result = Converter-ParaRAW $CSV_FILTRADO
+Atualizar-IndexHTML $result
 Bump-SW
-Git-CommitPush
+Git-CommitPush $result
+
+if ($script:novaDataANP) {
+    $script:novaDataANP | Set-Content "$REPO_DIR\ultima_atualizacao.txt" -Encoding UTF8
+    Write-Log "Data da atualização salva: $($script:novaDataANP)"
+}
 
 Write-Log "=== ATUALIZAÇÃO CONCLUÍDA COM SUCESSO ==="

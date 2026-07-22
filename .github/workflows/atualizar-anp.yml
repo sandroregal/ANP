@@ -27,7 +27,7 @@ jobs:
       - name: Verificar mudanças
         id: check
         run: |
-          if git diff --quiet index.html; then
+          if git diff --quiet index.html && [ -z "$(git ls-files --others --exclude-standard data_*.js)" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "Sem alterações nos dados."
           else
@@ -41,6 +41,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html sw.js
+          # Adicionar data files se existem (modo split)
+          for f in data_*.js; do [ -f "$f" ] && git add "$f"; done
+          # Remover data files antigos do tracking se não existem mais
+          for f in $(git ls-files "data_*.js"); do [ ! -f "$f" ] && git rm "$f"; done
           MES_REF=$(python -c "from datetime import date, timedelta; d=date.today().replace(day=1)-timedelta(1); print(d.strftime('%b/%Y'))")
           git commit -m "Atualiza dados ANP - ref. $MES_REF"
           git push

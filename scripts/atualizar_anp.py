@@ -15,6 +15,8 @@ import zipfile
 from collections import defaultdict
 from datetime import date
 
+nova_data_anp = ""
+
 ANP_ZIP_URL = "https://www.gov.br/anp/pt-br/centrais-de-conteudo/dados-abertos/arquivos/mdpg/liquidos.zip"
 ANP_PAGE_URL = "https://www.gov.br/anp/pt-br/centrais-de-conteudo/paineis-dinamicos-da-anp/paineis-dinamicos-do-abastecimento/painel-dinamico-do-mercado-brasileiro-de-combustiveis-liquidos"
 ANO_INICIO = 2025
@@ -68,32 +70,39 @@ def log(msg):
 
 
 def check_anp_updated():
-    """Verifica se a ANP atualizou os dados neste mês."""
+    """Verifica se a ANP atualizou os dados desde a última execução."""
+    global nova_data_anp
+    nova_data_anp = ""
+
+    last_date_file = os.path.join(REPO_DIR, "ultima_atualizacao.txt")
+    last_date = ""
+    if os.path.exists(last_date_file):
+        with open(last_date_file, "r", encoding="utf-8") as f:
+            last_date = f.read().strip()
+
     log("Verificando atualização na página da ANP...")
     try:
         req = urllib.request.Request(ANP_PAGE_URL, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=30) as resp:
             html = resp.read().decode("utf-8", errors="replace")
 
-        m = re.search(r'liquidos\.zip.*?atualiza.*?(\d{1,2}/\d{1,2}/\d{4})', html, re.IGNORECASE)
+        m = re.search(r'atualizado\s+em\s+(\d{1,2}/\d{1,2}/\d{4})', html, re.IGNORECASE)
         if not m:
-            m = re.search(r'[Aa]tualizado\s+em\s+(\d{1,2}/\d{1,2}/\d{4})', html)
+            m = re.search(r'liquidos\.zip.*?atualiza.*?(\d{1,2}/\d{1,2}/\d{4})', html, re.IGNORECASE)
         if m:
             data_str = m.group(1)
-            partes = data_str.split("/")
-            dia, mes, ano = int(partes[0]), int(partes[1]), int(partes[2])
-            hoje = date.today()
             log(f"Data de atualização na página: {data_str}")
-            if ano == hoje.year and mes == hoje.month:
-                log("Base atualizada neste mês!")
-                return True
-            elif ano == hoje.year and mes == hoje.month - 1 and hoje.day <= 5:
-                log("Base do mês anterior, mas estamos no início do mês. OK.")
-                return True
-            else:
-                log(f"Base não atualizada neste mês (última: {data_str}).")
+
+            if data_str == last_date:
+                log(f"Dados já atualizados com esta versão ({data_str}). Nada a fazer.")
                 return False
-        log("Não encontrou data. Tentando download direto...")
+
+            anterior = last_date if last_date else "nenhuma"
+            log(f"Nova atualização disponível (anterior: {anterior})")
+            nova_data_anp = data_str
+            return True
+
+        log("Não encontrou data na página. Tentando download direto...")
         return True
     except Exception as e:
         log(f"Erro ao verificar página: {e}. Tentando download direto...")
@@ -182,38 +191,81 @@ def parse_and_convert(csv_text):
     max_periodo = max((k[0], k[1]) for k in agg.keys())
     log(f"Último período: {max_periodo[1]:02d}/{max_periodo[0]}")
 
-    # Construir JSON
-    dados = []
+    # Construir JSON agrupado por ano
+    dados_por_ano = defaultdict(list)
     for key in sorted(agg.keys()):
         vol = round(agg[key], 3)
-        dados.append(f"[{key[0]},{key[1]},{key[2]},{key[3]},{key[4]},{key[5]},{vol}]")
+        entry = f"[{key[0]},{key[1]},{key[2]},{key[3]},{key[4]},{key[5]},{vol}]"
+        dados_por_ano[key[0]].append(entry)
 
     emp_json = ",".join(json.dumps(e, ensure_ascii=False) for e in empresas_list)
     prod_json = ",".join(json.dumps(p) for p in PRODUTOS_APP)
     seg_json = ",".join(json.dumps(s) for s in SEGMENTOS_APP)
     uf_json = ",".join(json.dumps(u) for u in UFS_VALIDAS)
-    dados_json = ",".join(dados)
+    header_part = f'"empresas":[{emp_json}],"produtos":[{prod_json}],"segmentos":[{seg_json}],"ufs":[{uf_json}]'
 
-    raw_line = f'const RAW = {{"empresas":[{emp_json}],"produtos":[{prod_json}],"segmentos":[{seg_json}],"ufs":[{uf_json}],"dados":[{dados_json}]}};'
+    all_dados = []
+    for ano in sorted(dados_por_ano.keys()):
+        all_dados.extend(dados_por_ano[ano])
+    dados_json = ",".join(all_dados)
 
-    log(f"RAW gerado: {len(raw_line) / 1024 / 1024:.2f} MB, {len(agg)} rows de dados")
-    return raw_line
+    full_raw = f'const RAW = {{{header_part},"dados":[{dados_json}]}};'
+
+    raw_size_mb = len(full_raw.encode("utf-8")) / 1024 / 1024
+    log(f"RAW gerado: {raw_size_mb:.2f} MB, {len(agg)} rows de dados")
+
+    SIZE_LIMIT_MB = 30
+
+    if raw_size_mb > SIZE_LIMIT_MB:
+        log(f"RAW excede {SIZE_LIMIT_MB} MB. Dividindo por ano...")
+        anos = sorted(dados_por_ano.keys())
+        for ano in anos:
+            year_entries = ",".join(dados_por_ano[ano])
+            year_content = f"var DATA_{ano} = [{year_entries}];"
+            year_path = os.path.join(REPO_DIR, f"data_{ano}.js")
+            with open(year_path, "w", encoding="utf-8") as f:
+                f.write(year_content)
+            year_size = os.path.getsize(year_path) / 1024 / 1024
+            log(f"  data_{ano}.js: {year_size:.2f} MB ({len(dados_por_ano[ano])} rows)")
+
+        concat_expr = f"DATA_{anos[0]}"
+        for ano in anos[1:]:
+            concat_expr += f".concat(DATA_{ano})"
+        slim_raw = f'const RAW = {{{header_part},"dados":{concat_expr}}};'
+        return {"raw_line": slim_raw, "split": True, "anos": anos}
+
+    # Limpar arquivos split antigos
+    import glob
+    for f in glob.glob(os.path.join(REPO_DIR, "data_*.js")):
+        os.remove(f)
+        log(f"  Removido split antigo: {os.path.basename(f)}")
+
+    return {"raw_line": full_raw, "split": False, "anos": []}
 
 
-def update_index(raw_line):
-    """Substitui o RAW no index.html."""
+def update_index(result):
+    """Substitui o RAW no index.html, com suporte a split por ano."""
     log("Atualizando index.html...")
     with open(INDEX_PATH, "r", encoding="utf-8") as f:
         content = f.read()
 
-    old_size = len(content)
-    content = re.sub(r'const RAW = \{.*?\};', raw_line, content, count=1)
-    new_size = len(content)
+    # Remover tags de data files anteriores
+    content = re.sub(r'<script src="data_\d{4}\.js"></script>\n?', '', content)
+
+    # Substituir linha RAW
+    content = re.sub(r'const RAW = \{.*?\};', result["raw_line"], content, count=1)
+
+    # Se split, inserir tags antes do <script> principal
+    if result["split"]:
+        tags = "\n".join(f'<script src="data_{ano}.js"></script>' for ano in result["anos"])
+        content = re.sub(r'(?=<script>\s+const RAW)', tags + "\n", content)
 
     with open(INDEX_PATH, "w", encoding="utf-8") as f:
         f.write(content)
 
-    log(f"index.html: {old_size / 1024 / 1024:.2f} MB → {new_size / 1024 / 1024:.2f} MB")
+    size = os.path.getsize(INDEX_PATH) / 1024 / 1024
+    mode = f" (split: {', '.join(str(a) for a in result['anos'])})" if result["split"] else ""
+    log(f"index.html atualizado: {size:.2f} MB{mode}")
 
 
 def bump_sw():
@@ -231,17 +283,28 @@ def bump_sw():
     log(f"SW versão → {new_ver}")
 
 
+def save_last_date():
+    """Salva a data da atualização para evitar reprocessamento."""
+    global nova_data_anp
+    if nova_data_anp:
+        last_date_file = os.path.join(REPO_DIR, "ultima_atualizacao.txt")
+        with open(last_date_file, "w", encoding="utf-8") as f:
+            f.write(nova_data_anp)
+        log(f"Data da atualização salva: {nova_data_anp}")
+
+
 def main():
     log("=== INÍCIO DA ATUALIZAÇÃO ANP ===")
 
     if not check_anp_updated():
-        log("ANP não atualizou ainda. Abortando.")
+        log("Sem novos dados. Encerrando.")
         sys.exit(0)
 
     csv_text = download_and_extract()
-    raw_line = parse_and_convert(csv_text)
-    update_index(raw_line)
+    result = parse_and_convert(csv_text)
+    update_index(result)
     bump_sw()
+    save_last_date()
 
     log("=== ATUALIZAÇÃO CONCLUÍDA ===")
 
