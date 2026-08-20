@@ -47,4 +47,5 @@ jobs:
           for f in $(git ls-files "data_*.js"); do [ ! -f "$f" ] && git rm "$f"; done
           MES_REF=$(python -c "from datetime import date, timedelta; d=date.today().replace(day=1)-timedelta(1); print(d.strftime('%b/%Y'))")
           git commit -m "Atualiza dados ANP - ref. $MES_REF"
+          git pull --rebase origin main
           git push
