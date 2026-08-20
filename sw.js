@@ -1,4 +1,4 @@
-﻿const CACHE_VERSION = 'v2026.07';
+﻿const CACHE_VERSION = 'v2026.08';
 const CACHE = 'analytics-rfic-' + CACHE_VERSION;
 const SHELL = [
   './',
