@@ -1,5 +1,8 @@
 # Analytics Distribuidoras — Royal FIC
 
+## Protocolo de Trabalho em Repositórios
+Antes de acionar qualquer repositório — ler, editar, commitar, dar push, abrir PR, deletar branch/arquivo, ou citar mudanças específicas — **sempre pedir direcionamento primeiro**. Toda alteração ou citação em repositórios é decidida em conjunto, via pergunta e resposta. Nunca agir de forma autônoma sobre repositórios, mesmo em modo automático.
+
 ## Projeto
 Dashboard PWA de inteligência comercial para a Royal FIC Distribuidora de Derivados de Petróleo, usando dados públicos da ANP (Agência Nacional do Petróleo). Hospedado no GitHub Pages: `sandroregal.github.io/CLAUDE/`
 
