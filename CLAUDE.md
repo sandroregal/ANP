@@ -85,9 +85,6 @@ RAW = {
 12. Separate tables, dividers, reduce color noise
 13. Nationwide data (27 UFs) + UF filter
 14. Veredito acionável no Retrovisor Competitivo + correção "Posto Bandeira Branca"
-15. WhatsApp share conversacional no Pacing (saudações/estímulos randomizados)
-16. Férias individuais no Pacing (dias úteis recalculados por vendedor)
-17. Insight de cobertura de férias (oportunidade de carteira do colega)
 
 ## Cache do Service Worker
 Ao atualizar o app, o usuário pode precisar:
