@@ -86,7 +86,9 @@ RAW = {
 16. Férias individuais no Pacing (dias úteis recalculados por vendedor)
 17. Insight de cobertura de férias (oportunidade de carteira do colega)
 
-## Ecossistema de Apps SP (repo Vendedores)
+## Ecossistema de Apps SP (repo Vendedores) — DESCONTINUADO
+> **Nota (2026-09):** Copiloto Comercial SP, Pacing Vendedores SP e Mes-Corrente **não estão mais em uso**. Não referenciar em análises, propostas ou integrações futuras. Seção mantida apenas como registro histórico.
+
 Três apps PWA no mesmo repo `sandroregal/Vendedores`, mesmo origin (compartilham IndexedDB):
 
 ### 1. Copiloto Comercial SP (`index.html`)
