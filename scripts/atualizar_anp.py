@@ -123,6 +123,21 @@ def download_and_extract():
         csv_data = zf.read("Liquidos_Vendas_Atual.csv")
 
     log(f"CSV extraído: {len(csv_data) / 1024 / 1024:.1f} MB")
+
+    # Detectar encoding: tentar UTF-8 primeiro (padrão mais recente da ANP),
+    # fallback para latin-1 (formato antigo)
+    for enc in ("utf-8", "utf-8-sig", "latin-1"):
+        try:
+            text = csv_data.decode(enc)
+            # Validar: deve conter palavras acentuadas corretamente
+            if "COMBUSTÍVEIS" in text or "PETRÓLEO" in text or "ÓLEO" in text:
+                log(f"Encoding detectado: {enc}")
+                return text
+        except (UnicodeDecodeError, ValueError):
+            continue
+
+    # Último recurso: latin-1 nunca falha na decodificação
+    log("AVISO: nenhum encoding produziu acentos corretos, usando latin-1")
     return csv_data.decode("latin-1")
 
 
