@@ -8,7 +8,7 @@ Antes de acionar qualquer repositório — ler, editar, commitar, dar push, abri
 - **Sessões não são salvas aqui:** nenhum arquivo, relatório, análise, log ou registro de sessão deve ser commitado neste repositório, salvo com direcionamento explícito do Sandro.
 
 ## Projeto
-Dashboard PWA de inteligência comercial para a Royal FIC Distribuidora de Derivados de Petróleo, usando dados públicos da ANP (Agência Nacional do Petróleo). Hospedado no GitHub Pages: `sandroregal.github.io/CLAUDE/`
+Dashboard PWA de inteligência comercial para a Royal FIC Distribuidora de Derivados de Petróleo, usando dados públicos da ANP (Agência Nacional do Petróleo). Hospedado no GitHub Pages a partir da `main` do repositório `sandroregal/ANP` (`sandroregal.github.io/ANP/`).
 
 ## Usuário
 - **Sandro Regal** — Royal FIC, Inteligência Comercial
@@ -19,7 +19,7 @@ Dashboard PWA de inteligência comercial para a Royal FIC Distribuidora de Deriv
 - **Single-file app**: tudo em `index.html` (HTML + CSS + JS + dados embutidos)
 - **PWA**: `manifest.json`, `sw.js` (network-first caching), ícones (192, 512, maskable)
 - **Sem dependências externas** — vanilla JS, Canvas API para gráficos
-- **Branch de trabalho**: `claude/fuel-distributor-analytics-kxgtsh` → merge para `main`
+- **Branch de trabalho**: branch da sessão → PR/merge para `main`
 
 ## Estrutura de Dados
 ```
@@ -34,6 +34,11 @@ RAW = {
   ]
 }
 ```
+
+## Atualização da Base ANP
+- **Automática:** GitHub Actions `.github/workflows/atualizar-anp.yml` roda dias 20, 25 e 28 às 10:00 BRT (ou manual via `workflow_dispatch`), executa `scripts/atualizar_anp.py` e commita em `index.html` só se houver dado novo.
+- **Local (Windows):** `atualizar_anp.ps1` / `Atualizar_ANP.bat`, agendamento descrito em `COMO_AGENDAR.txt`.
+- Ao publicar mudança de app, incrementar `CACHE_VERSION` em `sw.js` para forçar atualização nos devices.
 
 ## Constantes Importantes
 - `ROYAL_IDX` — índice da Royal FIC no array de empresas
@@ -66,7 +71,6 @@ RAW = {
 - Divisórias sutis (`.analysis-divider`) entre seções da análise
 - Tabelas comparativas (`.cmp-table`) com classes `.cmp-pos`, `.cmp-neg`, `.cmp-neutral`
 - **Retrovisor Competitivo:** 3 camadas — (1) dados brutos (volume, gap, evolução, avanços), (2) veredito ➜ por concorrente (frase-diagnóstico com ação: "defender", "monitorar", "sem ameaça"), (3) risco geral (ALTO/MODERADO/BAIXO) com produtos/segmentos específicos para proteger. Critério de risco: ALTO se gap < 8% ou concorrente cresce 10pp+ acima da Royal; inclui onde Royal cede e concorrente avança.
-- **Pacing — cobertura de férias:** `.cobre-tag` (verde, borda lateral) mostra oportunidade de carteira
 - **Deploy:** branch de trabalho → merge para `main` antes de publicar (GitHub Pages serve `main`)
 
 ## Geração de Ícones
