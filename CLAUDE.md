@@ -3,6 +3,10 @@
 ## Protocolo de Trabalho em Repositórios
 Antes de acionar qualquer repositório — ler, editar, commitar, dar push, abrir PR, deletar branch/arquivo, ou citar mudanças específicas — **sempre pedir direcionamento primeiro**. Toda alteração ou citação em repositórios é decidida em conjunto, via pergunta e resposta. Nunca agir de forma autônoma sobre repositórios, mesmo em modo automático.
 
+### Escopo do repositório ANP
+- **Uso exclusivo:** (1) atualizar a base de dados ANP e (2) melhorar o aplicativo. Qualquer outro conteúdo fica fora deste repositório.
+- **Sessões não são salvas aqui:** nenhum arquivo, relatório, análise, log ou registro de sessão deve ser commitado neste repositório, salvo com direcionamento explícito do Sandro.
+
 ## Projeto
 Dashboard PWA de inteligência comercial para a Royal FIC Distribuidora de Derivados de Petróleo, usando dados públicos da ANP (Agência Nacional do Petróleo). Hospedado no GitHub Pages: `sandroregal.github.io/CLAUDE/`
 
